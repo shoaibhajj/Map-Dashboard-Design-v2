@@ -1,0 +1,10 @@
+{
+  "description": "Monitor and manage vehicle fleets in real time with a clean, intuitive map dashboard offering detailed trip, sensor, and status insights for efficient fleet operations.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
