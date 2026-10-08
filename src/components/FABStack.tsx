@@ -4,7 +4,6 @@ import { useLanguage } from '../contexts/LanguageContext'
 
 interface Props {
   vehiclesPanelOpen: boolean
-  legendPanelOpen: boolean
   leftPanelOffset: number
   onOpen: (type: FABType) => void
 }
@@ -19,35 +18,16 @@ function TruckIcon() {
   )
 }
 
-function LegendIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="6" cy="7" r="2" fill="currentColor" stroke="none"/>
-      <line x1="10" y1="7" x2="20" y2="7"/>
-      <circle cx="6" cy="12" r="2" fill="currentColor" stroke="none"/>
-      <line x1="10" y1="12" x2="20" y2="12"/>
-      <circle cx="6" cy="17" r="2" fill="currentColor" stroke="none"/>
-      <line x1="10" y1="17" x2="20" y2="17"/>
-    </svg>
-  )
-}
-
-export default function FABStack({ vehiclesPanelOpen, legendPanelOpen, leftPanelOffset, onOpen }: Props) {
+export default function FABStack({ vehiclesPanelOpen, leftPanelOffset, onOpen }: Props) {
   const { t, isRTL } = useLanguage()
   const [hoveredType, setHoveredType] = useState<FABType | null>(null)
 
-  const fabDefs: { type: FABType; labelKey: 'fab_vehicles' | 'fab_legend'; icon: React.ReactNode; tooltipKey: 'fab_opens_panel'; variant: 'panel' }[] = [
+  const fabDefs: { type: FABType; labelKey: 'fab_vehicles'; icon: React.ReactNode; tooltipKey: 'fab_opens_panel'; variant: 'panel' }[] = [
     { type: 'vehicles', labelKey: 'fab_vehicles', icon: <TruckIcon />, tooltipKey: 'fab_opens_panel', variant: 'panel' },
-    { type: 'legend',   labelKey: 'fab_legend',   icon: <LegendIcon />, tooltipKey: 'fab_opens_panel', variant: 'panel' },
   ]
 
-  const isActive = (type: FABType) => {
-    if (type === 'vehicles') return vehiclesPanelOpen
-    if (type === 'legend') return legendPanelOpen
-    return false
-  }
-
-  const leftPanelOpen = vehiclesPanelOpen || legendPanelOpen
+  const isActive = () => vehiclesPanelOpen
+  const leftPanelOpen = vehiclesPanelOpen
 
   return (
     <div style={{
@@ -59,7 +39,7 @@ export default function FABStack({ vehiclesPanelOpen, legendPanelOpen, leftPanel
       transition: 'left 180ms ease, right 180ms ease, top 180ms ease',
     }}>
       {fabDefs.map(fab => {
-        const active = isActive(fab.type)
+        const active = isActive()
         const hovered = hoveredType === fab.type
 
         return (

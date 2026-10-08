@@ -1,16 +1,16 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import MapCanvas from './MapCanvas'
 import FABStack from './FABStack'
 import RightCardStack from './RightCardStack'
 import VehicleListPanel from './VehicleListPanel'
-import LegendPanel from './LegendPanel'
 import AddVehicleModal from './AddVehicleModal'
 import FloatingVehicleDetails from './FloatingVehicleDetails'
 import BottomSheet from './BottomSheet'
 import { Vehicle, vehicles as initialVehicles } from '../data/vehicles'
 import { RightCard, FABType, FleetFilter, defaultFilter } from '../types'
+import { readMapLegendConfig, saveMapLegendConfig, type MapLegendConfig } from '../utils/mapLegend'
 
 interface Props {
   darkMode: boolean
@@ -24,10 +24,12 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
   const [addVehicleOpen, setAddVehicleOpen] = useState(false)
   const [vehiclesPanelOpen, setVehiclesPanelOpen] = useState(true)
   const [vehiclesPanelCompact, setVehiclesPanelCompact] = useState(false)
-  const [legendPanelOpen, setLegendPanelOpen] = useState(false)
+  const [mapLegend, setMapLegend] = useState<MapLegendConfig>(readMapLegendConfig)
   const [rightCards, setRightCards] = useState<RightCard[]>([])
   const [filter, setFilter] = useState<FleetFilter>(defaultFilter)
   const [fleetDrawerHeight, setFleetDrawerHeight] = useState(0)
+
+  useEffect(() => saveMapLegendConfig(mapLegend), [mapLegend])
 
   const handleVehicleSelect = useCallback((vehicle: Vehicle) => {
     setSelectedVehicle(vehicle)
@@ -41,7 +43,6 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
     setShowSelectedRoute(false)
     setVehiclesPanelOpen(false)
     setVehiclesPanelCompact(false)
-    setLegendPanelOpen(false)
   }, [])
 
   const openFilterCard = useCallback(() => {
@@ -59,16 +60,11 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
         if (!next) setVehiclesPanelCompact(false)
         return next
       })
-      setLegendPanelOpen(false)
-      return
     }
-    setLegendPanelOpen(value => !value)
-    setVehiclesPanelOpen(false)
-    setVehiclesPanelCompact(false)
   }, [])
 
-  const leftPanelOpen = vehiclesPanelOpen || legendPanelOpen
-  const leftPanelOffset = vehiclesPanelOpen ? vehiclesPanelCompact ? 318 : 548 : legendPanelOpen ? 548 : 0
+  const leftPanelOpen = vehiclesPanelOpen
+  const leftPanelOffset = vehiclesPanelOpen ? vehiclesPanelCompact ? 318 : 548 : 0
   const filterCardOpen = rightCards.some(card => card.type === 'filter')
 
   return (
@@ -84,6 +80,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
           onMapClick={handleMapClick}
           darkMode={darkMode}
           leftPanelOffset={leftPanelOffset}
+          mapLegend={mapLegend}
         />
 
         {vehiclesPanelOpen && (
@@ -101,12 +98,6 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
           </div>
         )}
 
-        {legendPanelOpen && (
-          <div className="static-fleet-sidebar">
-            <LegendPanel onClose={() => setLegendPanelOpen(false)} />
-          </div>
-        )}
-
         <TopBar
           darkMode={darkMode}
           onToggleDark={onToggleDark}
@@ -116,11 +107,12 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
           filterActive={filterCardOpen}
           hideFleetControls={leftPanelOpen}
           hideRightControls={Boolean(selectedVehicle)}
+          mapLegend={mapLegend}
+          onMapLegendChange={setMapLegend}
         />
 
         <FABStack
           vehiclesPanelOpen={vehiclesPanelOpen}
-          legendPanelOpen={legendPanelOpen}
           leftPanelOffset={leftPanelOffset}
           onOpen={handleFABClick}
         />

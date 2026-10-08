@@ -18,7 +18,8 @@ interface Props {
 
 type FilterStatus = 'all' | 'moving' | 'idle' | 'offline'
 type GroupBy = 'status' | 'driver' | 'zone' | 'type' | 'selection'
-type IconName = 'search' | 'plus' | 'refresh' | 'filter' | 'chevron' | 'close' | 'collapse' | 'expand' | 'pin' | 'copy' | 'vehicle' | 'transmitter' | 'guard' | 'wasl' | 'camera' | 'weight' | 'truck' | 'van' | 'car' | 'motorcycle'
+type IndicatorStyle = 'uniform' | 'symbols'
+type IconName = 'search' | 'plus' | 'refresh' | 'filter' | 'chevron' | 'close' | 'collapse' | 'expand' | 'pin' | 'copy' | 'appearance' | 'vehicle' | 'transmitter' | 'satellite' | 'battery' | 'guard' | 'wasl' | 'camera' | 'weight' | 'speed' | 'truck' | 'van' | 'car' | 'motorcycle'
 type HealthTone = 'good' | 'warning' | 'bad' | 'muted'
 
 const statusClass: Record<Vehicle['status'], string> = {
@@ -38,12 +39,16 @@ const iconPaths: Record<IconName, React.ReactNode> = {
   expand: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="m3 3 5 5m13-5-5 5M3 21l5-5m13 5-5-5"/></>,
   pin: <><path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z"/><circle cx="12" cy="10" r="2"/></>,
   copy: <><rect x="8" y="8" width="10" height="11" rx="2"/><path d="M15 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></>,
+  appearance: <><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 15h2M14 15h2"/><circle cx="6" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="15" r="1" fill="currentColor" stroke="none"/></>,
   vehicle: <><path d="m5 11 2-4h10l2 4 2 2v4H3v-4l2-2Z"/><path d="M7 11h10M6 14h.01M18 14h.01"/><path d="M6 17v2M18 17v2"/></>,
   transmitter: <><path d="M12 8v12M9 20h6M10 12h4M8 16h8"/><circle cx="12" cy="6" r="1.5"/><path d="M7.5 3.5a6.4 6.4 0 0 0 0 5M16.5 3.5a6.4 6.4 0 0 1 0 5M4.5 1a10 10 0 0 0 0 10M19.5 1a10 10 0 0 1 0 10"/></>,
+  satellite: <><path d="m4 16 5-5 5 5-5 5-5-5ZM14 6l5-4 4 5-5 5-4-6Z"/><path d="M15 18a5 5 0 0 0 5-5M15 22a9 9 0 0 0 9-9"/></>,
+  battery: <><rect x="3" y="6" width="17" height="12" rx="2"/><path d="M20 10h2v4h-2"/></>,
   guard: <><path d="M8 7h8l1-3-5-2-5 2 1 3Z"/><circle cx="12" cy="10" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2M9 7h6"/></>,
   wasl: <><path d="M10 13a4 4 0 0 0 5.7 0l2.1-2.1a4 4 0 0 0-5.7-5.7L11 6.3"/><path d="M14 11a4 4 0 0 0-5.7 0l-2.1 2.1a4 4 0 0 0 5.7 5.7l1.1-1.1"/></>,
   camera: <><path d="M4 8h4l1.5-2h5L16 8h4v11H4V8Z"/><circle cx="12" cy="13" r="3"/></>,
-  weight: <><path d="M7 9h10l2 11H5L7 9Z"/><path d="M9 9a3 3 0 0 1 6 0"/><path d="m12 13 2-2"/></>,
+  weight: <><path d="M12 3v17M6 21h12M4 7h16M5 7l-3 8m3-8 3 8m11-8-3 8m3-8 3 8"/><path d="M2 15a3.5 3.5 0 0 0 7 0Zm13 0a3.5 3.5 0 0 0 7 0Z"/></>,
+  speed: <><path d="M4 17a8 8 0 1 1 16 0"/><path d="m12 13 4-4"/><circle cx="12" cy="13" r="1"/></>,
   truck: <><path d="M3 7h11v10H3V7ZM14 10h4l3 3v4h-7v-7Z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></>,
   van: <><path d="M4 7h11l4 5v5H4V7Z"/><path d="M15 8v4h4"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></>,
   car: <><path d="m5 11 2-4h10l2 4 2 2v4H3v-4l2-2Z"/><path d="M7 11h10"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></>,
@@ -88,65 +93,53 @@ function StatusTip({ className, label, detail, children }: {
   )
 }
 
-function TooltipIcon({ icon, tone, label, detail }: { icon: IconName; tone: HealthTone; label: string; detail: string }) {
+function TooltipIcon({ tone, label, detail, icon, indicatorStyle }: { tone: HealthTone; label: string; detail: string; icon: IconName; indicatorStyle: IndicatorStyle }) {
   return (
     <StatusTip className={`health-icon health-${tone}`} label={label} detail={detail}>
-      <Icon name={icon} size={24} />
+      {indicatorStyle === 'uniform' ? <span className="health-marker" aria-hidden="true" /> : <Icon name={icon} size={17} />}
     </StatusTip>
   )
 }
 
-function VehicleStateStatus({ towing, tone, label, detail }: { towing: boolean; tone: HealthTone; label: string; detail: string }) {
-  return (
-    <StatusTip className={`health-icon vehicle-state-icon health-${tone}`} label={label} detail={detail}>
-      {towing ? (
-        <svg width="38" height="28" viewBox="0 0 52 38" aria-hidden="true">
-          <path d="M2 17h17v12H2V17Zm2-8h10l5 8H2l2-8Z" fill="currentColor"/>
-          <circle cx="7" cy="31" r="4" fill="none" stroke="currentColor" strokeWidth="3"/>
-          <path d="m17 16 14-12 2 3-12 11v7h-4v-9Z" fill="currentColor"/>
-          <path d="m30 21 3-7h10l4 7 3 2v6H27v-6l3-2Zm4-4-1.5 4h12L42 17h-8Z" fill="currentColor"/>
-          <circle cx="33" cy="30" r="3" fill="none" stroke="currentColor" strokeWidth="2.5"/>
-          <circle cx="45" cy="30" r="3" fill="none" stroke="currentColor" strokeWidth="2.5"/>
-        </svg>
-      ) : <Icon name="vehicle" size={26} />}
-    </StatusTip>
-  )
+function VehicleStateStatus({ towing, tone, label, detail, indicatorStyle }: { towing: boolean; tone: HealthTone; label: string; detail: string; indicatorStyle: IndicatorStyle }) {
+  return <StatusTip className={`health-icon health-${tone}`} label={label} detail={detail}>
+    {indicatorStyle === 'uniform' ? <span className="health-marker" aria-hidden="true" /> : towing ? <svg className="tow-indicator" viewBox="0 0 52 38" aria-hidden="true">
+      <path d="M2 17h17v12H2V17Zm2-8h10l5 8H2l2-8Z" fill="currentColor" />
+      <circle cx="7" cy="31" r="4" fill="none" stroke="currentColor" strokeWidth="3" />
+      <path d="m17 16 14-12 2 3-12 11v7h-4v-9Z" fill="currentColor" />
+      <path d="m30 21 3-7h10l4 7 3 2v6H27v-6l3-2Zm4-4-1.5 4h12L42 17h-8Z" fill="currentColor" />
+      <circle cx="33" cy="30" r="3" fill="none" stroke="currentColor" strokeWidth="2.5" />
+      <circle cx="45" cy="30" r="3" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    </svg> : <Icon name="vehicle" size={17} />}
+  </StatusTip>
 }
 
-function BatteryStatus({ vehicle }: { vehicle: Vehicle }) {
+function BatteryStatus({ vehicle, indicatorStyle }: { vehicle: Vehicle; indicatorStyle: IndicatorStyle }) {
   const { t } = useLanguage()
   const level = vehicle.telemetry.batteryPercent
   const segments = level === null ? 0 : Math.ceil(level / 20)
   const tone: HealthTone = level === null ? 'muted' : level <= 20 ? 'bad' : level <= 60 ? 'warning' : 'good'
   const voltage = vehicle.telemetry.batteryVoltage
   const detail = level === null ? t('telemetry_unavailable') : `${level}% (${segments}/5 ${t('battery_bars')})${voltage === null ? '' : ` · ${voltage.toFixed(1)}V`}`
-  return (
-    <StatusTip className={`health-icon dynamic-battery health-${tone}`} label={t('icon_battery')} detail={detail}>
-      <svg width="35" height="23" viewBox="0 0 34 22" aria-hidden="true">
-        <rect x="1.5" y="2" width="28" height="18" rx="3" fill="none" stroke="currentColor" strokeWidth="2"/>
-        <path d="M30 8h3v6h-3" fill="currentColor"/>
-        {[0, 1, 2, 3, 4].map(index => <rect key={index} x={4 + index * 5} y="5" width="3.5" height="12" rx="1" fill="currentColor" opacity={index < segments ? 1 : .14}/>)}
-      </svg>
-    </StatusTip>
-  )
+  if (indicatorStyle === 'uniform') return <TooltipIcon tone={tone} label={t('icon_battery')} detail={detail} icon="battery" indicatorStyle={indicatorStyle} />
+  return <StatusTip className={`health-icon dynamic-battery health-${tone}`} label={t('icon_battery')} detail={detail}>
+    <svg viewBox="0 0 34 22" aria-hidden="true">
+      <rect x="1.5" y="2" width="28" height="18" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M30 8h3v6h-3" fill="currentColor" />
+      {[0, 1, 2, 3, 4].map(index => <rect key={index} x={4 + index * 5} y="5" width="3.5" height="12" rx="1" fill="currentColor" opacity={index < segments ? 1 : .14} />)}
+    </svg>
+  </StatusTip>
 }
 
-function GnssStatus({ vehicle }: { vehicle: Vehicle }) {
+function GnssStatus({ vehicle, indicatorStyle }: { vehicle: Vehicle; indicatorStyle: IndicatorStyle }) {
   const { t } = useLanguage()
   const count = vehicle.telemetry.satellites
   const tone: HealthTone = count === 0 ? 'muted' : count <= 3 ? 'bad' : count <= 6 ? 'warning' : 'good'
   const detail = `${count} ${t('telemetry_satellites')} · ${count > 0 ? t('satellites_connected') : t('telemetry_not_connected')}`
-  return (
-    <StatusTip className={`health-icon gnss-strength health-${tone}`} label={t('icon_satellites')} detail={detail}>
-      <svg width="34" height="30" viewBox="0 0 38 34" aria-hidden="true">
-        <path d="m3 21 8-8 8 8-8 8-8-8ZM19 6l8-6 8 8-7 7-9-9Z" fill="currentColor"/>
-        <path d="m12 11 5-5 10 10-5 5-10-10Z" fill="currentColor"/>
-        <path d="m16 9 8 8M19 6l8 8" fill="none" stroke="var(--card)" strokeWidth="1.8" opacity=".9"/>
-        <path d="M22 24a6 6 0 0 0 6-6M22 30a12 12 0 0 0 12-12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-      </svg>
-      <b>{count}<small>sat</small></b>
-    </StatusTip>
-  )
+  if (indicatorStyle === 'uniform') return <TooltipIcon tone={tone} label={t('icon_satellites')} detail={detail} icon="satellite" indicatorStyle={indicatorStyle} />
+  return <StatusTip className={`health-icon gnss-strength health-${tone}`} label={t('icon_satellites')} detail={detail}>
+    <Icon name="satellite" size={16} /><b>{count}<small>sat</small></b>
+  </StatusTip>
 }
 
 function WeightStatus({ vehicle }: { vehicle: Vehicle }) {
@@ -159,11 +152,7 @@ function WeightStatus({ vehicle }: { vehicle: Vehicle }) {
   const displayValue = actual === null ? 'N/A' : `${actual.toFixed(1)}t`
   return (
     <StatusTip className={`weight-indicator health-${tone}`} label={t('icon_weight')} detail={detail}>
-      <svg width="48" height="41" viewBox="0 0 52 45" aria-hidden="true">
-        <path d="M13 13h26l7 27H6l7-27Z" fill="none" stroke="currentColor" strokeWidth="3.3" strokeLinejoin="round"/>
-        <path d="M19 13V9a7 7 0 0 1 14 0v4" fill="none" stroke="currentColor" strokeWidth="3.3" strokeLinecap="round"/>
-        <text x="26" y="31" textAnchor="middle" fill="currentColor" fontSize={actual === null ? 11.5 : 12.5} fontWeight="900">{displayValue}</text>
-      </svg>
+      <strong>{displayValue}</strong>
     </StatusTip>
   )
 }
@@ -204,8 +193,17 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
   const [localFilter, setLocalFilter] = useState<FleetFilter>(filter)
   const [refreshing, setRefreshing] = useState(false)
   const [notice, setNotice] = useState('')
+  const [indicatorStyle, setIndicatorStyle] = useState<IndicatorStyle>(() => {
+    try { return window.localStorage.getItem('fleet-vehicle-indicator-style') === 'symbols' ? 'symbols' : 'uniform' }
+    catch { return 'uniform' }
+  })
+  const [indicatorStyleOpen, setIndicatorStyleOpen] = useState(false)
 
   useEffect(() => setLocalFilter(filter), [filter])
+  useEffect(() => {
+    try { window.localStorage.setItem('fleet-vehicle-indicator-style', indicatorStyle) }
+    catch { /* Keep the selected style for this session if storage is unavailable. */ }
+  }, [indicatorStyle])
 
   const filtered = useMemo(() => vehicles.filter(v => {
     const q = query.toLowerCase()
@@ -364,12 +362,36 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
           <button className={`fleet-filter-button${filtersOpen ? ' is-active' : ''}`} onClick={() => setFiltersOpen(value => !value)}>
             <Icon name="filter" size={18} /><span>{t('filter_btn')}</span>{(filter.statuses.length + filter.types.length + filter.zones.length + (filter.minFuel > 0 ? 1 : 0) + (filter.driversOnly !== 'all' ? 1 : 0)) > 0 && <span className="filter-active-dot" />}
           </button>
+          <div className="indicator-style-control">
+            <button className={`fleet-icon-button${indicatorStyleOpen ? ' is-active' : ''}`} onClick={() => setIndicatorStyleOpen(open => !open)} aria-label={t('vehicle_indicator_style')} title={t('vehicle_indicator_style')} aria-expanded={indicatorStyleOpen}>
+              <Icon name="appearance" size={17} />
+            </button>
+            {indicatorStyleOpen && <div className="indicator-style-menu" role="group" aria-label={t('vehicle_indicator_style')}>
+              {(['uniform', 'symbols'] as const).map(style => <button key={style} className={indicatorStyle === style ? 'is-selected' : ''} onClick={() => { setIndicatorStyle(style); setIndicatorStyleOpen(false) }}>
+                <span className={`indicator-style-preview ${style}`} aria-hidden="true">{style === 'uniform' ? <i /> : <><i /><b /><em /></>}</span>
+                <span>{style === 'uniform' ? t('indicator_uniform') : t('indicator_symbols')}</span>
+                {indicatorStyle === style && <span className="indicator-style-check" aria-hidden="true">✓</span>}
+              </button>)}
+            </div>}
+          </div>
         </div>
 
         {notice && <div className="fleet-notice" role="status">{notice}</div>}
       </div>
 
       <div className="fleet-list">
+        <div className="vehicle-metrics-header" aria-label="Vehicle metrics">
+          <span className="metric-header-spacer" aria-hidden="true" />
+          <span className="metric-header-spacer" aria-hidden="true" />
+          <span className="metric-header-icon" title={t('lbl_speed')} aria-label={t('lbl_speed')}><Icon name="speed" size={20}/></span>
+          <span className="metric-header-icon" title={t('icon_weight')} aria-label={t('icon_weight')}><Icon name="weight" size={20}/></span>
+          <div className="vehicle-health-header">
+            {([
+              ['vehicle', 'icon_engine'], ['transmitter', 'icon_gps'], ['battery', 'icon_battery'],
+              ['satellite', 'icon_satellites'], ['guard', 'icon_authorization'], ['wasl', 'icon_wasl'], ['camera', 'icon_camera'],
+            ] as const).map(([icon, label]) => <span className="metric-header-icon" key={icon} title={t(label)} aria-label={t(label)}><Icon name={icon} size={20}/></span>)}
+          </div>
+        </div>
         {groups.length === 0 && <div className="fleet-empty">{t('no_vehicles')}</div>}
         {groups.map(([key, groupVehicles]) => {
           const isOpen = openGroups.has(key)
@@ -388,6 +410,7 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
                   <VehicleStatusCard
                     key={vehicle.id}
                     vehicle={vehicle}
+                    indicatorStyle={indicatorStyle}
                     selected={selectedIds.has(vehicle.id)}
                     onSelect={() => onVehicleSelect(vehicle)}
                     onToggleSelected={() => toggleSelected(vehicle.id)}
@@ -408,9 +431,10 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
   )
 }
 
-function VehicleStatusCard({ vehicle, selected, onSelect, onToggleSelected, onCopy }: {
+function VehicleStatusCard({ vehicle, selected, indicatorStyle, onSelect, onToggleSelected, onCopy }: {
   vehicle: Vehicle
   selected: boolean
+  indicatorStyle: IndicatorStyle
   onSelect: () => void
   onToggleSelected: () => void
   onCopy: () => void
@@ -468,15 +492,15 @@ function VehicleStatusCard({ vehicle, selected, onSelect, onToggleSelected, onCo
             <div><strong>{vehicle.speed}</strong><span>{t('kmh')}</span></div>
           </div>
         </StatusTip>
+        <WeightStatus vehicle={vehicle} />
         <div className="vehicle-health-row">
-          <VehicleStateStatus towing={telemetry.towing} tone={vehicleTone} label={t('icon_engine')} detail={vehicleDetail} />
-          <TooltipIcon icon="transmitter" tone={gpsTone} label={t('icon_gps')} detail={gpsDetail} />
-          <BatteryStatus vehicle={vehicle} />
-          <GnssStatus vehicle={vehicle} />
-          <TooltipIcon icon="guard" tone={driverTone} label={t('icon_authorization')} detail={driverDetail} />
-          <TooltipIcon icon="wasl" tone={waslTone} label={t('icon_wasl')} detail={waslDetail} />
-          <WeightStatus vehicle={vehicle} />
-          <TooltipIcon icon="camera" tone={cameraTone} label={t('icon_camera')} detail={cameraDetail} />
+          <VehicleStateStatus towing={telemetry.towing} tone={vehicleTone} label={t('icon_engine')} detail={vehicleDetail} indicatorStyle={indicatorStyle} />
+          <TooltipIcon tone={gpsTone} label={t('icon_gps')} detail={gpsDetail} icon="transmitter" indicatorStyle={indicatorStyle} />
+          <BatteryStatus vehicle={vehicle} indicatorStyle={indicatorStyle} />
+          <GnssStatus vehicle={vehicle} indicatorStyle={indicatorStyle} />
+          <TooltipIcon tone={driverTone} label={t('icon_authorization')} detail={driverDetail} icon="guard" indicatorStyle={indicatorStyle} />
+          <TooltipIcon tone={waslTone} label={t('icon_wasl')} detail={waslDetail} icon="wasl" indicatorStyle={indicatorStyle} />
+          <TooltipIcon tone={cameraTone} label={t('icon_camera')} detail={cameraDetail} icon="camera" indicatorStyle={indicatorStyle} />
         </div>
       </div>
     </article>

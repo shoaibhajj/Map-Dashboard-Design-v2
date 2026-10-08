@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { Vehicle } from '../data/vehicles'
 import { useLanguage } from '../contexts/LanguageContext'
+import LegendPanel from './LegendPanel'
+import type { MapLegendConfig } from '../utils/mapLegend'
 
 interface Props {
   darkMode: boolean
@@ -11,6 +13,8 @@ interface Props {
   filterActive: boolean
   hideFleetControls?: boolean
   hideRightControls?: boolean
+  mapLegend: MapLegendConfig
+  onMapLegendChange: (config: MapLegendConfig) => void
 }
 
 const statusDot: Record<string, string> = {
@@ -19,13 +23,15 @@ const statusDot: Record<string, string> = {
   offline: '#ef4444',
 }
 
-export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSelect, onOpenFilter, filterActive, hideFleetControls = false, hideRightControls = false }: Props) {
+export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSelect, onOpenFilter, filterActive, hideFleetControls = false, hideRightControls = false, mapLegend, onMapLegendChange }: Props) {
   const { t, lang, setLang, isRTL } = useLanguage()
   const [activeFilter, setActiveFilter] = useState<string>('all')
   const [showResults, setShowResults] = useState(false)
   const [focused, setFocused] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchRef = useRef<HTMLDivElement>(null)
+  const legendRef = useRef<HTMLDivElement>(null)
+  const [legendOpen, setLegendOpen] = useState(false)
 
   const chipFilters = [
     { id: 'all',     labelKey: 'filter_all' as const },
@@ -51,6 +57,25 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
     }
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (hideRightControls) setLegendOpen(false)
+  }, [hideRightControls])
+
+  useEffect(() => {
+    function closeLegendOnOutsideClick(event: MouseEvent) {
+      if (legendRef.current && !legendRef.current.contains(event.target as Node)) setLegendOpen(false)
+    }
+    function closeLegendOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setLegendOpen(false)
+    }
+    document.addEventListener('mousedown', closeLegendOnOutsideClick)
+    document.addEventListener('keydown', closeLegendOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeLegendOnOutsideClick)
+      document.removeEventListener('keydown', closeLegendOnEscape)
+    }
   }, [])
 
   const movingCount = vehicles.filter(v => v.status === 'moving').length
@@ -79,7 +104,7 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
     <div style={{
       position: 'absolute',
       top: 10, left: 10, right: 10,
-      zIndex: 30,
+      zIndex: 75,
       display: 'flex',
       alignItems: 'center',
       gap: 8,
@@ -231,6 +256,37 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
         >
           {t('language_toggle')}
         </button>
+
+        {/* Map legend and marker color rules */}
+        <div ref={legendRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={event => { event.stopPropagation(); setLegendOpen(open => !open) }}
+            title={t('legend_title')}
+            aria-label={t('legend_title')}
+            aria-expanded={legendOpen}
+            style={{
+              ...ctrlBtnStyle,
+              width: 'auto',
+              gap: 7,
+              padding: '0 10px',
+              color: legendOpen ? 'var(--primary)' : 'var(--muted-foreground)',
+              borderColor: legendOpen ? 'var(--primary)' : 'var(--border)',
+              background: legendOpen ? 'color-mix(in srgb, var(--primary) 10%, var(--card))' : 'color-mix(in srgb, var(--card) 96%, transparent)',
+              fontSize: 12,
+              fontWeight: 650,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="6" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><path d="M11 6h10M11 12h10M11 18h10"/>
+            </svg>
+            {t('legend_title')}
+          </button>
+          {legendOpen && <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 120, pointerEvents: 'auto' }}>
+            <LegendPanel config={mapLegend} vehicles={vehicles} onChange={onMapLegendChange} onClose={() => setLegendOpen(false)} />
+          </div>}
+        </div>
 
         {/* Dark mode */}
         <button onClick={onToggleDark} title={darkMode ? t('light_mode') : t('dark_mode')} style={ctrlBtnStyle}>

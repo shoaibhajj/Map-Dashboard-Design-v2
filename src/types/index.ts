@@ -13,7 +13,7 @@ export interface RightCard {
   expanded: boolean
 }
 
-export type FABType = 'vehicles' | 'legend'
+export type FABType = 'vehicles'
 
 export interface FleetFilter {
   statuses: string[]   // [] = all

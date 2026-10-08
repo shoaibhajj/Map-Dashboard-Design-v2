@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import * as mapboxgl from 'mapbox-gl'
-import { Vehicle, VehicleStatus } from '../data/vehicles'
+import { Vehicle } from '../data/vehicles'
 import { MAPBOX_TOKEN } from '../config/mapbox'
+import { getVehicleMapColor, type MapLegendConfig } from '../utils/mapLegend'
 
 // ── Map style presets ─────────────────────────────────────────────────────────
 type MapStyle = 'streets' | 'satellite' | 'dark' | 'terrain'
@@ -30,12 +31,6 @@ const VEHICLE_ROUTES: Record<string, { out: [number, number][]; ret?: [number, n
 }
 
 // ── Status colours ────────────────────────────────────────────────────────────
-const STATUS_COLOR: Record<VehicleStatus, string> = {
-  moving:  '#16a34a',
-  idle:    '#f59e0b',
-  offline: '#6b7280',
-}
-
 // ── Road-snapped routes (Mapbox Directions API) ───────────────────────────────
 type SnappedRoutes = Record<string, [number, number][]>
 
@@ -126,8 +121,7 @@ const MDI: Record<string, string> = {
 //   • MDI icon path        translate(12,12) scale(1.33)
 //   • Bearing arrow        .bearing-arrow group, rotate around (28,28)
 //   • Selected ring        outer halo
-function buildMarkerSVG(vehicle: Vehicle, selected: boolean, darkMode: boolean): string {
-  const color   = STATUS_COLOR[vehicle.status]
+function buildMarkerSVG(vehicle: Vehicle, selected: boolean, darkMode: boolean, color: string): string {
   const moving  = vehicle.status === 'moving'
   const iconKey = vehicle.vehicleType === 'truck' ? 'truck'
                 : vehicle.vehicleType === 'van'   ? 'van'
@@ -277,11 +271,12 @@ interface Props {
   onMapClick: () => void
   darkMode: boolean
   leftPanelOffset: number
+  mapLegend: MapLegendConfig
 }
 
 const ANIM_SPEED = 1 / 20000 // fraction of route per ms → full route in ~20 s
 
-export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute, onVehicleSelect, onMapClick, darkMode, leftPanelOffset }: Props) {
+export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute, onVehicleSelect, onMapClick, darkMode, leftPanelOffset, mapLegend }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<mapboxgl.Map | null>(null)
   const markersRef    = useRef(new Map<string, mapboxgl.Marker>())
@@ -436,7 +431,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
 
     vehicles.forEach(vehicle => {
       const selected = selectedVehicle?.id === vehicle.id
-      const svgStr   = buildMarkerSVG(vehicle, selected, darkMode)
+      const svgStr   = buildMarkerSVG(vehicle, selected, darkMode, getVehicleMapColor(vehicle, mapLegend))
 
       if (markersRef.current.has(vehicle.id)) {
         const marker = markersRef.current.get(vehicle.id)!
@@ -471,7 +466,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     markersRef.current.forEach((marker, id) => {
       if (!vehicles.find(v => v.id === id)) { marker.remove(); markersRef.current.delete(id) }
     })
-  }, [vehicles, selectedVehicle, mapLoaded, darkMode])
+  }, [vehicles, selectedVehicle, mapLoaded, darkMode, mapLegend])
 
   // ── Route + fly-to on vehicle select ─────────────────────────────────────
   useEffect(() => {

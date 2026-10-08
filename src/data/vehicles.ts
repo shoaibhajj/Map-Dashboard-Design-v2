@@ -19,6 +19,7 @@ export interface VehicleTelemetry {
 }
 
 export interface SensorReading {
+  key?: string
   label: string
   value: string
   unit?: string
@@ -85,6 +86,7 @@ export const vehicles: Vehicle[] = [
       { label: 'Battery', value: '13.8', unit: 'V', min: 11, max: 15, current: 13.8 },
       { label: 'RPM', value: '2,340', unit: 'rpm', min: 0, max: 5000, current: 2340 },
       { label: 'Oil Pressure', value: '42', unit: 'psi', min: 0, max: 80, current: 42 },
+      { key: 'refrigerator_temperature', label: 'Refrigerator temperature', value: '-16', unit: '°C', min: -30, max: 10, current: -16 },
     ],
     tripHistory: [
       { time: '08:41', speed: 0, location: 'Depot — 500 Industrial Blvd' },
@@ -183,6 +185,7 @@ export const vehicles: Vehicle[] = [
       { label: 'Battery', value: '11.2', unit: 'V', min: 11, max: 15, current: 11.2 },
       { label: 'RPM', value: 'N/A', unit: '', min: 0, max: 5000, current: 0 },
       { label: 'Oil Pressure', value: 'N/A', unit: '', min: 0, max: 80, current: 0 },
+      { key: 'refrigerator_temperature', label: 'Refrigerator temperature', value: '-3', unit: '°C', min: -30, max: 10, current: -3 },
     ],
     tripHistory: [],
     route: {
@@ -216,6 +219,7 @@ export const vehicles: Vehicle[] = [
       { label: 'Battery', value: '13.5', unit: 'V', min: 11, max: 15, current: 13.5 },
       { label: 'RPM', value: '2,810', unit: 'rpm', min: 0, max: 5000, current: 2810 },
       { label: 'Oil Pressure', value: '45', unit: 'psi', min: 0, max: 80, current: 45 },
+      { key: 'refrigerator_temperature', label: 'Refrigerator temperature', value: '-7', unit: '°C', min: -30, max: 10, current: -7 },
     ],
     tripHistory: [
       { time: '07:58', speed: 0, location: 'East Bay Depot' },
@@ -267,3 +271,28 @@ export const vehicles: Vehicle[] = [
     },
   },
 ]
+
+const additionalFleetVehicles: Array<Pick<Vehicle, 'id' | 'name' | 'plate' | 'driver' | 'vehicleType' | 'zone' | 'status' | 'speed' | 'fuelLevel' | 'lastUpdate' | 'location' | 'lat' | 'lng' | 'odometer' | 'engineHours' | 'tripDistance' | 'tripDuration' | 'tripStart'> & { telemetry: Partial<VehicleTelemetry> }> = [
+  { id: 'v007', name: 'Fleet Hotel 18', plate: 'CA-7412-P', driver: 'Omar Ali', vehicleType: 'car', zone: 'Downtown', status: 'moving', speed: 43, fuelLevel: 68, lastUpdate: '6 sec ago', location: 'Civic Center, San Francisco', lat: 37.7793, lng: -122.4162, odometer: 38210, engineHours: 940, tripDistance: 12.6, tripDuration: '34m', tripStart: '09:18 AM', telemetry: { gpsState: 'online', batteryPercent: 92, batteryVoltage: 13.6, satellites: 13, driverAuthorization: 'authorized', waslState: 'connected', actualWeightTons: 1.4, weightLimitTons: 2, cameraState: 'working' } },
+  { id: 'v008', name: 'Fleet India 32', plate: 'CA-5286-V', driver: 'Mia Thompson', vehicleType: 'car', zone: 'North Zone', status: 'idle', speed: 0, fuelLevel: 81, lastUpdate: '2 min ago', location: 'Pacific Heights, San Francisco', lat: 37.7901, lng: -122.4254, odometer: 51748, engineHours: 1270, tripDistance: 0, tripDuration: '—', tripStart: '—', telemetry: { gpsState: 'online', batteryPercent: 75, batteryVoltage: 12.9, satellites: 9, driverAuthorization: 'authorized', waslState: 'connected', actualWeightTons: 1.6, weightLimitTons: 2, cameraState: 'working' } },
+  { id: 'v009', name: 'Fleet Juliet 05', plate: 'CA-9034-L', driver: 'Noah Williams', vehicleType: 'car', zone: 'South Zone', status: 'moving', speed: 72, fuelLevel: 39, lastUpdate: '9 sec ago', location: 'Potrero Hill, San Francisco', lat: 37.7585, lng: -122.4011, odometer: 92410, engineHours: 2235, tripDistance: 29.1, tripDuration: '1h 06m', tripStart: '08:51 AM', telemetry: { gpsState: 'online', batteryPercent: 64, batteryVoltage: 13.1, satellites: 8, driverAuthorization: 'authorized', waslState: 'connected', actualWeightTons: 1.8, weightLimitTons: 2, cameraState: 'working' } },
+  { id: 'v010', name: 'Fleet Kilo 41', plate: 'CA-1168-Q', driver: 'Layla Hassan', vehicleType: 'car', zone: 'East Bay', status: 'moving', speed: 28, fuelLevel: 57, lastUpdate: '15 sec ago', location: 'Treasure Island, San Francisco', lat: 37.8232, lng: -122.3701, odometer: 65720, engineHours: 1680, tripDistance: 8.4, tripDuration: '21m', tripStart: '09:31 AM', telemetry: { gpsState: 'weak', batteryPercent: 48, batteryVoltage: 12.4, satellites: 4, driverAuthorization: 'authorized', waslState: 'connected', actualWeightTons: 1.5, weightLimitTons: 2, cameraState: 'not_installed' } },
+  { id: 'v011', name: 'Fleet Lima 27', plate: 'CA-6520-N', driver: 'Unassigned', vehicleType: 'car', zone: 'West Zone', status: 'offline', speed: 0, fuelLevel: 24, lastUpdate: '31 min ago', location: 'Richmond District, San Francisco', lat: 37.7798, lng: -122.4829, odometer: 44806, engineHours: 1195, tripDistance: 0, tripDuration: '—', tripStart: '—', telemetry: { gpsState: 'offline', batteryPercent: 18, batteryVoltage: 11.4, satellites: 0, driverAuthorization: 'unknown', waslState: 'not_connected', actualWeightTons: 1.7, weightLimitTons: 2, cameraState: 'not_working' } },
+  { id: 'v012', name: 'Fleet Mike 11', plate: 'CA-3875-B', driver: 'Ethan Brooks', vehicleType: 'car', zone: 'Downtown', status: 'idle', speed: 0, fuelLevel: 73, lastUpdate: '4 min ago', location: 'North Beach, San Francisco', lat: 37.8008, lng: -122.4092, odometer: 73512, engineHours: 1860, tripDistance: 0, tripDuration: '—', tripStart: '—', telemetry: { towing: false, gpsState: 'weak', batteryPercent: 57, batteryVoltage: 12.6, satellites: 6, driverAuthorization: 'authorized', waslState: 'not_connected', actualWeightTons: 1.3, weightLimitTons: 2, cameraState: 'working' } },
+]
+
+vehicles.push(...additionalFleetVehicles.map((extra, index) => {
+  const seed = vehicles[index % 6]
+  return {
+    ...seed,
+    ...extra,
+    telemetry: { ...seed.telemetry, ...extra.telemetry },
+    sensors: seed.sensors.map(reading => ({ ...reading })),
+    tripHistory: seed.tripHistory.map(point => ({ ...point })),
+    route: {
+      outbound: seed.route.outbound.map(point => ({ ...point })),
+      return: seed.route.return?.map(point => ({ ...point })),
+      events: seed.route.events.map(event => ({ ...event })),
+    },
+  }
+}))
