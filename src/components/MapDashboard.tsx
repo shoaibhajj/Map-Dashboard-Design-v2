@@ -17,6 +17,17 @@ interface Props {
   onToggleDark: () => void
 }
 
+function retainLastTelemetryTimes(updated: Vehicle, previous?: Vehicle): Vehicle {
+  return {
+    ...updated,
+    telemetry: {
+      ...updated.telemetry,
+      waslUpdatedAt: updated.telemetry.waslUpdatedAt ?? previous?.telemetry.waslUpdatedAt ?? null,
+      weightUpdatedAt: updated.telemetry.weightUpdatedAt ?? previous?.telemetry.weightUpdatedAt ?? null,
+    },
+  }
+}
+
 export default function MapDashboard({ darkMode, onToggleDark }: Props) {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [showSelectedRoute, setShowSelectedRoute] = useState(false)
@@ -136,8 +147,10 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
             onShowTrip={() => setShowSelectedRoute(true)}
             onFocus={() => setSelectedVehicle(current => current ? { ...current } : current)}
             onUpdate={updated => {
-              setAllVehicles(current => current.map(vehicle => vehicle.id === updated.id ? updated : vehicle))
-              setSelectedVehicle(updated)
+              const previous = allVehicles.find(vehicle => vehicle.id === updated.id)
+              const merged = retainLastTelemetryTimes(updated, previous)
+              setAllVehicles(current => current.map(vehicle => vehicle.id === merged.id ? merged : vehicle))
+              setSelectedVehicle(merged)
             }}
           />
         )}

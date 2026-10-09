@@ -4,6 +4,7 @@ import { Vehicle } from '../data/vehicles'
 import { defaultFilter, FleetFilter } from '../types'
 import { TranslationKey } from '../i18n/strings'
 import { useLanguage } from '../contexts/LanguageContext'
+import { formatTelemetryTimestamp } from '../utils/formatTelemetryTimestamp'
 
 interface Props {
   vehicles: Vehicle[]
@@ -66,11 +67,12 @@ function Icon({ name, size = 18, filled = false }: { name: IconName; size?: numb
 function StatusTip({ className, label, detail, children }: {
   className: string
   label: string
-  detail: string
+  detail: string | string[]
   children: React.ReactNode
 }) {
   const anchorRef = useRef<HTMLSpanElement>(null)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+  const detailLines = Array.isArray(detail) ? detail : [detail]
   const show = () => {
     const rect = anchorRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -81,11 +83,14 @@ function StatusTip({ className, label, detail, children }: {
     })
   }
   return (
-    <span ref={anchorRef} className={className} tabIndex={0} aria-label={`${label}: ${detail}`} onMouseEnter={show} onMouseLeave={() => setPosition(null)} onFocus={show} onBlur={() => setPosition(null)}>
+    <span ref={anchorRef} className={className} tabIndex={0} aria-label={`${label}: ${detailLines.join('. ')}`} onMouseEnter={show} onMouseLeave={() => setPosition(null)} onFocus={show} onBlur={() => setPosition(null)}>
       {children}
       {position && createPortal(
         <span className="floating-status-tooltip" role="tooltip" style={{ left: position.left, top: position.top }}>
-          <strong>{label}</strong><span>{detail}</span>
+          <strong>{label}</strong>
+          <span className="floating-status-tooltip-details">
+            {detailLines.map((line, index) => <span key={`${index}-${line}`}>{line}</span>)}
+          </span>
         </span>,
         document.body,
       )}
@@ -142,13 +147,20 @@ function GnssStatus({ vehicle, indicatorStyle }: { vehicle: Vehicle; indicatorSt
   </StatusTip>
 }
 
-function WeightStatus({ vehicle }: { vehicle: Vehicle }) {
-  const { t } = useLanguage()
+function timestampDetail(timestamp: string | null | undefined, lang: 'en' | 'ar', now: number, t: (key: TranslationKey) => string): string[] {
+  const formatted = formatTelemetryTimestamp(timestamp, lang, now, t('just_now'))
+  if (!formatted) return [`${t('value_last_updated')}: ${t('update_time_unavailable')}`]
+  return [`${t('value_last_updated')}: ${formatted.absolute}`, formatted.relative]
+}
+
+function WeightStatus({ vehicle, now }: { vehicle: Vehicle; now: number }) {
+  const { t, lang } = useLanguage()
   const actual = vehicle.telemetry.actualWeightTons
   const limit = vehicle.telemetry.weightLimitTons
   const ratio = actual !== null && limit !== null ? actual / limit : null
   const tone: HealthTone = ratio === null ? 'muted' : ratio > 1 ? 'bad' : ratio >= .9 ? 'warning' : 'good'
-  const detail = actual === null || limit === null ? t('telemetry_unavailable') : `${actual.toFixed(1)}t / ${limit.toFixed(1)}t ${t('weight_allowed')}`
+  const weightDetail = actual === null || limit === null ? t('telemetry_unavailable') : `${actual.toFixed(1)}t / ${limit.toFixed(1)}t ${t('weight_allowed')}`
+  const detail = [weightDetail, ...timestampDetail(vehicle.telemetry.weightUpdatedAt, lang, now, t)]
   const displayValue = actual === null ? 'N/A' : `${actual.toFixed(1)}t`
   return (
     <StatusTip className={`weight-indicator health-${tone}`} label={t('icon_weight')} detail={detail}>
@@ -184,6 +196,7 @@ function FilterChips<T extends string>({ options, selected, onToggle }: {
 
 export default function VehicleListPanel({ vehicles, filter, onFilterChange, onVehicleSelect, onAddVehicle, onClose, compact, onToggleCompact }: Props) {
   const { t, isRTL } = useLanguage()
+  const [now, setNow] = useState(() => Date.now())
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
@@ -200,6 +213,10 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
   const [indicatorStyleOpen, setIndicatorStyleOpen] = useState(false)
 
   useEffect(() => setLocalFilter(filter), [filter])
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
   useEffect(() => {
     try { window.localStorage.setItem('fleet-vehicle-indicator-style', indicatorStyle) }
     catch { /* Keep the selected style for this session if storage is unavailable. */ }
@@ -410,6 +427,7 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
                   <VehicleStatusCard
                     key={vehicle.id}
                     vehicle={vehicle}
+                    now={now}
                     indicatorStyle={indicatorStyle}
                     selected={selectedIds.has(vehicle.id)}
                     onSelect={() => onVehicleSelect(vehicle)}
@@ -431,15 +449,16 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
   )
 }
 
-function VehicleStatusCard({ vehicle, selected, indicatorStyle, onSelect, onToggleSelected, onCopy }: {
+function VehicleStatusCard({ vehicle, now, selected, indicatorStyle, onSelect, onToggleSelected, onCopy }: {
   vehicle: Vehicle
+  now: number
   selected: boolean
   indicatorStyle: IndicatorStyle
   onSelect: () => void
   onToggleSelected: () => void
   onCopy: () => void
 }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const violation = vehicle.speed > 75
   const telemetry = vehicle.telemetry
   const vehicleTone: HealthTone = telemetry.towing ? 'warning' : vehicle.status === 'moving' ? 'good' : vehicle.status === 'idle' ? 'bad' : 'muted'
@@ -449,7 +468,8 @@ function VehicleStatusCard({ vehicle, selected, indicatorStyle, onSelect, onTogg
   const driverTone: HealthTone = telemetry.driverAuthorization === 'authorized' ? 'good' : telemetry.driverAuthorization === 'unauthorized' ? 'bad' : 'muted'
   const driverDetail = telemetry.driverAuthorization === 'authorized' ? `${t('telemetry_authorized')} · ${vehicle.driver}` : telemetry.driverAuthorization === 'unauthorized' ? t('telemetry_unauthorized') : t('telemetry_no_driver')
   const waslTone: HealthTone = telemetry.waslState === 'connected' ? 'good' : telemetry.waslState === 'not_connected' ? 'bad' : 'muted'
-  const waslDetail = telemetry.waslState === 'connected' ? t('telemetry_compliant') : telemetry.waslState === 'not_connected' ? t('telemetry_not_connected') : t('telemetry_not_registered')
+  const waslStatusDetail = telemetry.waslState === 'connected' ? t('telemetry_compliant') : telemetry.waslState === 'not_connected' ? t('telemetry_not_connected') : t('telemetry_not_registered')
+  const waslDetail = [waslStatusDetail, ...timestampDetail(telemetry.waslUpdatedAt, lang, now, t)]
   const cameraTone: HealthTone = telemetry.cameraState === 'working' ? 'good' : telemetry.cameraState === 'not_working' ? 'bad' : 'muted'
   const cameraDetail = telemetry.cameraState === 'working' ? t('telemetry_working') : telemetry.cameraState === 'not_working' ? t('telemetry_not_working') : t('telemetry_not_installed')
 
@@ -492,7 +512,7 @@ function VehicleStatusCard({ vehicle, selected, indicatorStyle, onSelect, onTogg
             <div><strong>{vehicle.speed}</strong><span>{t('kmh')}</span></div>
           </div>
         </StatusTip>
-        <WeightStatus vehicle={vehicle} />
+        <WeightStatus vehicle={vehicle} now={now} />
         <div className="vehicle-health-row">
           <VehicleStateStatus towing={telemetry.towing} tone={vehicleTone} label={t('icon_engine')} detail={vehicleDetail} indicatorStyle={indicatorStyle} />
           <TooltipIcon tone={gpsTone} label={t('icon_gps')} detail={gpsDetail} icon="transmitter" indicatorStyle={indicatorStyle} />

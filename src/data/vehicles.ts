@@ -13,8 +13,12 @@ export interface VehicleTelemetry {
   satellites: number
   driverAuthorization: DriverAuthorization
   waslState: WaslState
+  /** ISO 8601 timestamp of the latest WASL update, independent of the GPS packet time. */
+  waslUpdatedAt?: string | null
   actualWeightTons: number | null
   weightLimitTons: number | null
+  /** ISO 8601 timestamp of the latest weight reading, independent of the GPS packet time. */
+  weightUpdatedAt?: string | null
   cameraState: CameraState
 }
 
@@ -78,7 +82,7 @@ export const vehicles: Vehicle[] = [
     status: 'moving', speed: 67, fuelLevel: 78,
     lastUpdate: '12 sec ago',
     location: '3rd Ave & Market St, San Francisco',
-    telemetry: { towing: false, gpsState: 'online', batteryPercent: 100, batteryVoltage: 13.8, satellites: 12, driverAuthorization: 'authorized', waslState: 'connected', actualWeightTons: 8.8, weightLimitTons: 12, cameraState: 'working' },
+    telemetry: { towing: false, gpsState: 'online', batteryPercent: 100, batteryVoltage: 13.8, satellites: 12, driverAuthorization: 'authorized', waslState: 'connected', waslUpdatedAt: '2026-10-09T11:15:00Z', actualWeightTons: 8.8, weightLimitTons: 12, weightUpdatedAt: '2026-10-09T11:27:00Z', cameraState: 'working' },
     lat: 37.7749, lng: -122.4194, odometer: 48302, engineHours: 1240,
     tripDistance: 34.2, tripDuration: '1h 12m', tripStart: '08:41 AM',
     sensors: [
@@ -113,7 +117,7 @@ export const vehicles: Vehicle[] = [
     status: 'moving', speed: 52, fuelLevel: 45,
     lastUpdate: '8 sec ago',
     location: 'Mission District, San Francisco',
-    telemetry: { towing: false, gpsState: 'online', batteryPercent: 40, batteryVoltage: 12.4, satellites: 5, driverAuthorization: 'unauthorized', waslState: 'connected', actualWeightTons: 3.9, weightLimitTons: 5, cameraState: 'not_installed' },
+    telemetry: { towing: false, gpsState: 'online', batteryPercent: 40, batteryVoltage: 12.4, satellites: 5, driverAuthorization: 'unauthorized', waslState: 'connected', waslUpdatedAt: '2026-10-09T10:48:00Z', actualWeightTons: 3.9, weightLimitTons: 5, weightUpdatedAt: '2026-10-09T11:10:00Z', cameraState: 'not_installed' },
     lat: 37.7599, lng: -122.4148, odometer: 72100, engineHours: 2840,
     tripDistance: 18.7, tripDuration: '42m', tripStart: '09:21 AM',
     sensors: [
@@ -145,7 +149,7 @@ export const vehicles: Vehicle[] = [
     status: 'idle', speed: 0, fuelLevel: 91,
     lastUpdate: '3 min ago',
     location: 'Tenderloin, San Francisco',
-    telemetry: { towing: false, gpsState: 'weak', batteryPercent: 60, batteryVoltage: 12.7, satellites: 7, driverAuthorization: 'authorized', waslState: 'not_connected', actualWeightTons: 4.6, weightLimitTons: 5, cameraState: 'working' },
+    telemetry: { towing: false, gpsState: 'weak', batteryPercent: 60, batteryVoltage: 12.7, satellites: 7, driverAuthorization: 'authorized', waslState: 'not_connected', waslUpdatedAt: '2026-10-09T09:54:00Z', actualWeightTons: 4.6, weightLimitTons: 5, weightUpdatedAt: '2026-10-09T11:02:00Z', cameraState: 'working' },
     lat: 37.7838, lng: -122.4134, odometer: 29450, engineHours: 810,
     tripDistance: 0, tripDuration: '—', tripStart: '—',
     sensors: [
@@ -177,7 +181,7 @@ export const vehicles: Vehicle[] = [
     status: 'offline', speed: 0, fuelLevel: 62,
     lastUpdate: '48 min ago',
     location: 'SoMa District, San Francisco',
-    telemetry: { towing: false, gpsState: 'offline', batteryPercent: 20, batteryVoltage: 11.2, satellites: 0, driverAuthorization: 'unknown', waslState: 'not_registered', actualWeightTons: null, weightLimitTons: null, cameraState: 'not_installed' },
+    telemetry: { towing: false, gpsState: 'offline', batteryPercent: 20, batteryVoltage: 11.2, satellites: 0, driverAuthorization: 'unknown', waslState: 'not_registered', waslUpdatedAt: '2026-10-08T19:32:00Z', actualWeightTons: null, weightLimitTons: null, weightUpdatedAt: null, cameraState: 'not_installed' },
     lat: 37.7785, lng: -122.4056, odometer: 61820, engineHours: 1990,
     tripDistance: 0, tripDuration: '—', tripStart: '—',
     sensors: [
@@ -211,7 +215,7 @@ export const vehicles: Vehicle[] = [
     status: 'moving', speed: 81, fuelLevel: 33,
     lastUpdate: '5 sec ago',
     location: 'Bay Bridge Eastbound',
-    telemetry: { towing: false, gpsState: 'online', batteryPercent: 80, batteryVoltage: 13.5, satellites: 16, driverAuthorization: 'authorized', waslState: 'connected', actualWeightTons: 11.8, weightLimitTons: 10.5, cameraState: 'not_working' },
+    telemetry: { towing: false, gpsState: 'online', batteryPercent: 80, batteryVoltage: 13.5, satellites: 16, driverAuthorization: 'authorized', waslState: 'connected', waslUpdatedAt: '2026-10-09T11:30:00Z', actualWeightTons: 11.8, weightLimitTons: 10.5, weightUpdatedAt: '2026-10-09T11:29:00Z', cameraState: 'not_working' },
     lat: 37.7955, lng: -122.3768, odometer: 105430, engineHours: 3100,
     tripDistance: 52.4, tripDuration: '2h 04m', tripStart: '07:58 AM',
     sensors: [
@@ -244,7 +248,7 @@ export const vehicles: Vehicle[] = [
     status: 'idle', speed: 0, fuelLevel: 55,
     lastUpdate: '9 min ago',
     location: 'Financial District, San Francisco',
-    telemetry: { towing: true, gpsState: 'weak', batteryPercent: 55, batteryVoltage: 12.6, satellites: 3, driverAuthorization: 'unknown', waslState: 'not_connected', actualWeightTons: 4.8, weightLimitTons: 5, cameraState: 'working' },
+    telemetry: { towing: true, gpsState: 'weak', batteryPercent: 55, batteryVoltage: 12.6, satellites: 3, driverAuthorization: 'unknown', waslState: 'not_connected', waslUpdatedAt: '2026-10-09T10:20:00Z', actualWeightTons: 4.8, weightLimitTons: 5, weightUpdatedAt: '2026-10-09T10:55:00Z', cameraState: 'working' },
     lat: 37.7937, lng: -122.3965, odometer: 38920, engineHours: 1050,
     tripDistance: 0, tripDuration: '—', tripStart: '—',
     sensors: [
@@ -281,12 +285,21 @@ const additionalFleetVehicles: Array<Pick<Vehicle, 'id' | 'name' | 'plate' | 'dr
   { id: 'v012', name: 'Fleet Mike 11', plate: 'CA-3875-B', driver: 'Ethan Brooks', vehicleType: 'car', zone: 'Downtown', status: 'idle', speed: 0, fuelLevel: 73, lastUpdate: '4 min ago', location: 'North Beach, San Francisco', lat: 37.8008, lng: -122.4092, odometer: 73512, engineHours: 1860, tripDistance: 0, tripDuration: '—', tripStart: '—', telemetry: { towing: false, gpsState: 'weak', batteryPercent: 57, batteryVoltage: 12.6, satellites: 6, driverAuthorization: 'authorized', waslState: 'not_connected', actualWeightTons: 1.3, weightLimitTons: 2, cameraState: 'working' } },
 ]
 
+const additionalTelemetryTimes: Array<Pick<VehicleTelemetry, 'waslUpdatedAt' | 'weightUpdatedAt'>> = [
+  { waslUpdatedAt: '2026-10-09T11:05:00Z', weightUpdatedAt: '2026-10-09T11:10:00Z' },
+  { waslUpdatedAt: null, weightUpdatedAt: '2026-10-09T10:54:00Z' },
+  { waslUpdatedAt: '2026-10-09T10:45:00Z', weightUpdatedAt: '2026-10-09T11:12:00Z' },
+  { waslUpdatedAt: '2026-10-08T21:30:00Z', weightUpdatedAt: '2026-10-09T10:44:00Z' },
+  { waslUpdatedAt: '2026-10-08T19:30:00Z', weightUpdatedAt: '2026-10-09T10:35:00Z' },
+  { waslUpdatedAt: '2026-10-09T11:32:00Z', weightUpdatedAt: '2026-10-09T11:24:00Z' },
+]
+
 vehicles.push(...additionalFleetVehicles.map((extra, index) => {
   const seed = vehicles[index % 6]
   return {
     ...seed,
     ...extra,
-    telemetry: { ...seed.telemetry, ...extra.telemetry },
+    telemetry: { ...seed.telemetry, ...extra.telemetry, ...additionalTelemetryTimes[index] },
     sensors: seed.sensors.map(reading => ({ ...reading })),
     tripHistory: seed.tripHistory.map(point => ({ ...point })),
     route: {
