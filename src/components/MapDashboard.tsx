@@ -6,11 +6,15 @@ import FABStack from './FABStack'
 import RightCardStack from './RightCardStack'
 import VehicleListPanel from './VehicleListPanel'
 import AddVehicleModal from './AddVehicleModal'
+import AddGroupModal from './AddGroupModal'
+import AddDriverModal from './AddDriverModal'
 import FloatingVehicleDetails from './FloatingVehicleDetails'
 import BottomSheet from './BottomSheet'
 import { Vehicle, vehicles as initialVehicles } from '../data/vehicles'
+import { FleetDriver, FleetGroup, initialFleetGroups } from '../data/fleetEntities'
 import { RightCard, FABType, FleetFilter, defaultFilter } from '../types'
 import { readMapLegendConfig, saveMapLegendConfig, type MapLegendConfig } from '../utils/mapLegend'
+import { matchesGroupFilter } from '../utils/fleetGroups'
 
 interface Props {
   darkMode: boolean
@@ -32,7 +36,9 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [showSelectedRoute, setShowSelectedRoute] = useState(false)
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>(initialVehicles)
-  const [addVehicleOpen, setAddVehicleOpen] = useState(false)
+  const [addModal, setAddModal] = useState<'vehicle' | 'group' | 'driver' | null>(null)
+  const [fleetGroups, setFleetGroups] = useState<FleetGroup[]>(initialFleetGroups)
+  const [, setFleetDrivers] = useState<FleetDriver[]>([])
   const [vehiclesPanelOpen, setVehiclesPanelOpen] = useState(true)
   const [vehiclesPanelCompact, setVehiclesPanelCompact] = useState(false)
   const [mapLegend, setMapLegend] = useState<MapLegendConfig>(readMapLegendConfig)
@@ -76,6 +82,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
 
   const panelInlineOffset = vehiclesPanelOpen ? vehiclesPanelCompact ? 318 : 548 : 0
   const filterCardOpen = rightCards.some(card => card.type === 'filter')
+  const mapVehicles = allVehicles.filter(vehicle => matchesGroupFilter(vehicle.groupId, filter.groupIds, fleetGroups))
 
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', background: 'var(--background)' }}>
@@ -83,7 +90,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <MapCanvas
-          vehicles={allVehicles}
+          vehicles={mapVehicles}
           selectedVehicle={selectedVehicle}
           showSelectedRoute={showSelectedRoute}
           onVehicleSelect={handleVehicleSelect}
@@ -97,10 +104,13 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
           <div className={`static-fleet-sidebar${vehiclesPanelCompact ? ' is-compact' : ''}`}>
             <VehicleListPanel
               vehicles={allVehicles}
+              groups={fleetGroups}
               filter={filter}
               onFilterChange={setFilter}
               onVehicleSelect={handleVehicleSelect}
-              onAddVehicle={() => setAddVehicleOpen(true)}
+              onAddVehicle={() => setAddModal('vehicle')}
+              onAddGroup={() => setAddModal('group')}
+              onAddDriver={() => setAddModal('driver')}
               onClose={() => { setVehiclesPanelOpen(false); setVehiclesPanelCompact(false) }}
               compact={vehiclesPanelCompact}
               onToggleCompact={() => setVehiclesPanelCompact(value => !value)}
@@ -136,6 +146,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
             onVehicleActivate={setSelectedVehicle}
             filter={filter}
             onFilterChange={setFilter}
+            groups={fleetGroups}
           />
         )}
 
@@ -157,15 +168,24 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
         <BottomSheet vehicles={allVehicles} selectedVehicle={selectedVehicle} height={fleetDrawerHeight} onHeightChange={setFleetDrawerHeight} onVehicleSelect={handleVehicleSelect} />
       </div>
 
-      {addVehicleOpen && (
+      {addModal === 'vehicle' && (
         <AddVehicleModal
-          onClose={() => setAddVehicleOpen(false)}
+          groups={fleetGroups}
+          onClose={() => setAddModal(null)}
           onAdd={vehicle => {
             setAllVehicles(current => [vehicle, ...current])
-            setAddVehicleOpen(false)
+            setAddModal(null)
           }}
         />
       )}
+      {addModal === 'group' && <AddGroupModal groups={fleetGroups} onClose={() => setAddModal(null)} onAdd={group => {
+        setFleetGroups(current => [...current, group])
+        setAddModal(null)
+      }} />}
+      {addModal === 'driver' && <AddDriverModal onClose={() => setAddModal(null)} onAdd={driver => {
+        setFleetDrivers(current => [...current, driver])
+        setAddModal(null)
+      }} />}
     </div>
   )
 }

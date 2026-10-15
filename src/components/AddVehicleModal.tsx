@@ -1,21 +1,25 @@
 import { FormEvent, useState } from 'react'
 import { Vehicle, VehicleStatus, VehicleType } from '../data/vehicles'
 import { useLanguage } from '../contexts/LanguageContext'
+import type { FleetGroup } from '../data/fleetEntities'
+import { getFleetGroupDisplayName, getGroupDepth } from '../utils/fleetGroups'
 
 interface Props {
+  groups: FleetGroup[]
   onClose: () => void
   onAdd: (vehicle: Vehicle) => void
 }
 
 const emptyRoute = { outbound: [], events: [] }
 
-export default function AddVehicleModal({ onClose, onAdd }: Props) {
+export default function AddVehicleModal({ groups, onClose, onAdd }: Props) {
   const { t } = useLanguage()
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [driver, setDriver] = useState('')
   const [location, setLocation] = useState('')
-  const [zone, setZone] = useState('Downtown')
+  const [zone, setZone] = useState('Central Riyadh')
+  const [groupId, setGroupId] = useState(() => groups.find(group => group.id === 'riyadh-central')?.id ?? groups.find(group => group.parentId !== null)?.id ?? groups[0]?.id ?? '')
   const [vehicleType, setVehicleType] = useState<VehicleType>('truck')
   const [status, setStatus] = useState<VehicleStatus>('offline')
   const [fuelLevel, setFuelLevel] = useState(100)
@@ -28,14 +32,15 @@ export default function AddVehicleModal({ onClose, onAdd }: Props) {
       plate: plate.trim().toUpperCase(),
       driver: driver.trim() || 'Unassigned',
       vehicleType,
+      groupId: groupId || null,
       zone,
       status,
       speed: 0,
       fuelLevel,
       lastUpdate: t('just_now'),
       location: location.trim(),
-      lat: 37.7749,
-      lng: -122.4194,
+      lat: 24.7136,
+      lng: 46.6753,
       odometer: 0,
       engineHours: 0,
       tripDistance: 0,
@@ -100,11 +105,17 @@ export default function AddVehicleModal({ onClose, onAdd }: Props) {
             <label className="vehicle-form-field">
               <span>{t('group_zone')}</span>
               <select value={zone} onChange={event => setZone(event.target.value)}>
-                <option value="Downtown">{t('zone_downtown')}</option>
-                <option value="North Zone">{t('zone_north')}</option>
-                <option value="South Zone">{t('zone_south')}</option>
-                <option value="East Bay">{t('zone_east')}</option>
-                <option value="West Zone">{t('zone_west')}</option>
+                <option value="Central Riyadh">{t('zone_central')}</option>
+                <option value="North Riyadh">{t('zone_north')}</option>
+                <option value="South Riyadh">{t('zone_south')}</option>
+                <option value="East Riyadh">{t('zone_east')}</option>
+                <option value="West Riyadh">{t('zone_west')}</option>
+              </select>
+            </label>
+            <label className="vehicle-form-field">
+              <span>{t('vehicle_group')}</span>
+              <select required value={groupId} onChange={event => setGroupId(event.target.value)}>
+                {groups.map(group => <option key={group.id} value={group.id}>{`${'— '.repeat(getGroupDepth(group, groups))}${getFleetGroupDisplayName(group, t)}`}</option>)}
               </select>
             </label>
             <label className="vehicle-form-field">

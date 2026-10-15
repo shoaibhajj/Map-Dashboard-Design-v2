@@ -367,7 +367,7 @@ function LocationCard({ vehicle, onFocus }: { vehicle: Vehicle; onFocus: () => v
       </div>
       <div className="detail-location-map-column">
         <div className="detail-location-map" role="img" aria-label={`${vehicle.location} route to Port of Oakland`}>
-          <span className="detail-location-map-label">San Francisco</span>
+          <span className="detail-location-map-label">Riyadh</span>
           <svg viewBox="0 0 240 160" preserveAspectRatio="none" aria-hidden="true">
             <path className="detail-location-route-halo" d="M34 112 60 99 79 106 96 76 121 85 142 65 162 72 184 47 209 42"/>
             <path className="detail-location-route" d="M34 112 60 99 79 106 96 76 121 85 142 65 162 72 184 47 209 42"/>

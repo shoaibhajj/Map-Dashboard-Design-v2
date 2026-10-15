@@ -4,6 +4,7 @@ import { Vehicle, vehicles as allVehicles } from '../data/vehicles'
 import VehicleFlowCard from './VehicleFlowCard'
 import FilterCard from './FilterCard'
 import { useLanguage } from '../contexts/LanguageContext'
+import type { FleetGroup } from '../data/fleetEntities'
 
 interface Props {
   cards: RightCard[]
@@ -12,10 +13,11 @@ interface Props {
   focusedVehicleId?: string
   onVehicleActivate: (vehicle: Vehicle) => void
   filter: FleetFilter
+  groups: FleetGroup[]
   onFilterChange: (f: FleetFilter) => void
 }
 
-export default function RightCardStack({ cards, onCardsChange, bottomInset, focusedVehicleId, onVehicleActivate, filter, onFilterChange }: Props) {
+export default function RightCardStack({ cards, onCardsChange, bottomInset, focusedVehicleId, onVehicleActivate, filter, groups, onFilterChange }: Props) {
   const { isRTL } = useLanguage()
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const dragAllowed = useRef(false)
@@ -106,6 +108,7 @@ export default function RightCardStack({ cards, onCardsChange, bottomInset, focu
 
             {card.type === 'filter' && (
               <FilterCard
+                groups={groups}
                 filter={filter}
                 onFilterChange={onFilterChange}
                 minimized={card.minimized}

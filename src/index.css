@@ -148,6 +148,9 @@ html[dir="rtl"] .static-fleet-sidebar { right: 8px; left: auto; }
 .fleet-header-actions { display: flex; align-items: center; gap: 6px; }
 .fleet-primary-action, .fleet-icon-button, .fleet-filter-button, .fleet-tabs button, .fleet-group-header, .vehicle-star, .vehicle-location button, .fleet-quick-filters button { font: inherit; cursor: pointer; }
 .fleet-primary-action { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 11px; color: var(--primary-foreground); background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 82%, #006b46)); border: 0; border-radius: 10px; font-size: 12px; font-weight: 700; box-shadow: 0 5px 12px color-mix(in srgb, var(--primary) 24%, transparent); }
+.fleet-add-menu { position: fixed; z-index: 1200; display: grid; width: 196px; gap: 3px; padding: 5px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: 11px; box-shadow: var(--shadow-panel); }
+.fleet-add-menu button { display: flex; align-items: center; gap: 9px; min-height: 36px; padding: 0 9px; color: var(--secondary-foreground); background: transparent; border: 0; border-radius: 7px; font: inherit; font-size: 11.5px; font-weight: 650; text-align: start; cursor: pointer; }
+.fleet-add-menu button:hover, .fleet-add-menu button:focus-visible { color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--card)); outline: 0; }
 .fleet-icon-button { display: grid; place-items: center; width: 34px; height: 34px; color: var(--secondary-foreground); background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
 .fleet-icon-button:hover, .fleet-filter-button:hover { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 42%, var(--border)); }
 .fleet-icon-button.is-spinning .fleet-icon { animation: fleet-spin .65s ease; }
@@ -309,6 +312,32 @@ html[dir="rtl"] .fleet-filter-flyout.is-panel-compact { right: calc(var(--sideba
 .fleet-filter-chips button, .filter-segmented button, .filter-actions button { font: inherit; cursor: pointer; }
 .fleet-filter-chips button { display: flex; align-items: center; gap: 6px; min-height: 31px; padding: 0 12px; color: var(--muted-foreground); background: var(--secondary); border: 1px solid var(--border); border-radius: 10px; font-size: 10.5px; font-weight: 700; }
 .fleet-filter-chips button.is-active { color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--card)); border-color: var(--primary); }
+.group-tree-filter { display: grid; gap: 2px; max-height: 190px; overflow: auto; padding: 4px; color: var(--foreground); background: color-mix(in srgb, var(--secondary) 48%, var(--card)); border: 1px solid var(--border); border-radius: 9px; }
+.group-tree-node { min-width: 0; }
+.group-tree-row { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 29px; padding: 2px 6px; padding-inline-start: calc(6px + var(--group-depth, 0) * 13px); border-radius: 6px; color: var(--muted-foreground); font: inherit; }
+.group-tree-row:hover, .group-tree-row.is-selected { color: var(--foreground); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.group-tree-row input { width: 13px; height: 13px; margin: 0; accent-color: var(--primary); flex: 0 0 auto; }
+.group-tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 650; }
+.group-tree-disclosure, .group-tree-disclosure-spacer { display: grid; place-items: center; width: 15px; height: 18px; padding: 0; color: var(--muted-foreground); background: transparent; border: 0; flex: 0 0 15px; }
+.group-tree-disclosure { cursor: pointer; }
+.group-tree-disclosure svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .16s ease; }
+.group-tree-disclosure.is-open svg { transform: rotate(90deg); }
+html[dir="rtl"] .group-tree-disclosure.is-open svg { transform: rotate(-90deg); }
+.group-tree-child-count { margin-inline-start: auto; color: var(--muted-foreground); font-size: 9px; }
+.group-tree-empty { padding: 8px; color: var(--muted-foreground); font-size: 11px; }
+.fleet-view-switch { display: flex; gap: 4px; padding-top: 7px; }
+.fleet-view-switch button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 27px; padding: 0 9px; color: var(--muted-foreground); background: var(--secondary); border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease; }
+.fleet-view-switch button:hover { color: var(--foreground); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.fleet-view-switch button.is-active { color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--card)); border-color: color-mix(in srgb, var(--primary) 38%, var(--border)); }
+.fleet-browser-node { min-width: 0; }
+.fleet-browser-group-row { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 32px; padding: 2px 8px; padding-inline-start: calc(8px + var(--group-depth, 0) * 17px); color: var(--foreground); background: transparent; border: 0; border-radius: 7px; text-align: start; font: inherit; cursor: pointer; }
+.fleet-browser-group-row:hover { background: color-mix(in srgb, var(--secondary) 75%, transparent); }
+.fleet-browser-group-row > svg { color: var(--primary); flex: 0 0 auto; }
+.fleet-browser-group-row strong { overflow: hidden; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-browser-count { margin-inline-start: auto; color: var(--muted-foreground); font-size: 10px; font-variant-numeric: tabular-nums; }
+.fleet-browser-children { min-width: 0; }
+.fleet-browser-vehicle { padding-inline-start: calc(var(--group-depth, 0) * 17px); }
+.fleet-browser-empty { padding: 5px 12px 8px; color: var(--muted-foreground); font-size: 10px; }
 .filter-range { display: flex; align-items: center; gap: 12px; }
 .filter-range input { flex: 1; accent-color: var(--primary); }
 .filter-range b { min-width: 38px; color: var(--foreground); font-family: var(--font-mono); font-size: 11px; }

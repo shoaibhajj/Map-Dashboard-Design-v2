@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FleetFilter, defaultFilter } from '../types'
 import { VehicleType } from '../data/vehicles'
 import { useLanguage } from '../contexts/LanguageContext'
+import type { FleetGroup } from '../data/fleetEntities'
+import GroupTreeFilter from './GroupTreeFilter'
 
 interface Props {
+  groups: FleetGroup[]
   filter: FleetFilter
   onFilterChange: (f: FleetFilter) => void
   minimized: boolean
@@ -82,10 +85,11 @@ const STATUS_COLORS: Record<string, string> = {
   moving: '#16a34a', idle: '#9ca3af', offline: '#ef4444',
 }
 
-export default function FilterCard({ filter, onFilterChange, minimized, onMinimize, onClose, dragHandleProps, isDragging }: Props) {
+export default function FilterCard({ groups, filter, onFilterChange, minimized, onMinimize, onClose, dragHandleProps, isDragging }: Props) {
   const { t } = useLanguage()
 
   const [localFilter, setLocalFilter] = useState<FleetFilter>(filter)
+  useEffect(() => setLocalFilter(filter), [filter])
 
   const toggleStatus = (s: string) => {
     setLocalFilter(f => ({
@@ -114,10 +118,15 @@ export default function FilterCard({ filter, onFilterChange, minimized, onMinimi
     }))
   }
 
+  const toggleGroup = (groupId: string) => {
+    setLocalFilter(f => ({ ...f, groupIds: f.groupIds.includes(groupId) ? f.groupIds.filter(id => id !== groupId) : [...f.groupIds, groupId] }))
+  }
+
   const activeCount = [
     localFilter.statuses.length > 0,
     localFilter.types.length > 0,
     localFilter.zones.length > 0,
+    localFilter.groupIds.length > 0,
     localFilter.minFuel > 0,
     localFilter.driversOnly !== 'all',
   ].filter(Boolean).length
@@ -224,10 +233,11 @@ export default function FilterCard({ filter, onFilterChange, minimized, onMinimi
           <FilterSection label={t('filter_group_zone')}>
             <ChipGroup<string>
               options={[
-                { value: 'Downtown', label: t('zone_downtown') },
-                { value: 'North Zone', label: t('zone_north') },
-                { value: 'South Zone', label: t('zone_south') },
-                { value: 'East Bay', label: t('zone_east') },
+                { value: 'Central Riyadh', label: t('zone_central') },
+                { value: 'North Riyadh', label: t('zone_north') },
+                { value: 'South Riyadh', label: t('zone_south') },
+                { value: 'East Riyadh', label: t('zone_east') },
+                { value: 'West Riyadh', label: t('zone_west') },
               ]}
               selected={localFilter.zones}
               onToggle={toggleZone}
@@ -267,6 +277,10 @@ export default function FilterCard({ filter, onFilterChange, minimized, onMinimi
                 </button>
               ))}
             </div>
+          </FilterSection>
+
+          <FilterSection label={t('filter_vehicle_groups')}>
+            <GroupTreeFilter groups={groups} selectedIds={localFilter.groupIds} onToggle={toggleGroup} />
           </FilterSection>
 
           {/* Actions */}

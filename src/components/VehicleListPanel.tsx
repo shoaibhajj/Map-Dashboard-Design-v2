@@ -5,13 +5,19 @@ import { defaultFilter, FleetFilter } from '../types'
 import { TranslationKey } from '../i18n/strings'
 import { useLanguage } from '../contexts/LanguageContext'
 import { formatTelemetryTimestamp } from '../utils/formatTelemetryTimestamp'
+import type { FleetGroup } from '../data/fleetEntities'
+import { getFleetGroupDisplayName, getGroupBranchIds, matchesGroupFilter } from '../utils/fleetGroups'
+import GroupTreeFilter from './GroupTreeFilter'
 
 interface Props {
   vehicles: Vehicle[]
+  groups: FleetGroup[]
   filter: FleetFilter
   onFilterChange: (filter: FleetFilter) => void
   onVehicleSelect: (v: Vehicle) => void
   onAddVehicle: () => void
+  onAddGroup: () => void
+  onAddDriver: () => void
   onClose: () => void
   compact: boolean
   onToggleCompact: () => void
@@ -20,7 +26,7 @@ interface Props {
 type FilterStatus = 'all' | 'moving' | 'idle' | 'offline'
 type GroupBy = 'status' | 'driver' | 'zone' | 'type' | 'selection'
 type IndicatorStyle = 'uniform' | 'symbols'
-type IconName = 'search' | 'plus' | 'refresh' | 'filter' | 'chevron' | 'close' | 'collapse' | 'expand' | 'pin' | 'copy' | 'appearance' | 'vehicle' | 'transmitter' | 'satellite' | 'battery' | 'guard' | 'wasl' | 'camera' | 'weight' | 'speed' | 'truck' | 'van' | 'car' | 'motorcycle'
+type IconName = 'search' | 'plus' | 'refresh' | 'filter' | 'chevron' | 'close' | 'collapse' | 'expand' | 'pin' | 'copy' | 'appearance' | 'vehicle' | 'group' | 'driver' | 'transmitter' | 'satellite' | 'battery' | 'guard' | 'wasl' | 'camera' | 'weight' | 'speed' | 'truck' | 'van' | 'car' | 'motorcycle'
 type HealthTone = 'good' | 'warning' | 'bad' | 'muted'
 
 const statusClass: Record<Vehicle['status'], string> = {
@@ -42,6 +48,8 @@ const iconPaths: Record<IconName, React.ReactNode> = {
   copy: <><rect x="8" y="8" width="10" height="11" rx="2"/><path d="M15 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></>,
   appearance: <><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 15h2M14 15h2"/><circle cx="6" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="15" r="1" fill="currentColor" stroke="none"/></>,
   vehicle: <><path d="m5 11 2-4h10l2 4 2 2v4H3v-4l2-2Z"/><path d="M7 11h10M6 14h.01M18 14h.01"/><path d="M6 17v2M18 17v2"/></>,
+  group: <><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5.5a3 3 0 0 1 0 5.8M18 14a5 5 0 0 1 3 4.6v1"/></>,
+  driver: <><circle cx="12" cy="7" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></>,
   transmitter: <><path d="M12 8v12M9 20h6M10 12h4M8 16h8"/><circle cx="12" cy="6" r="1.5"/><path d="M7.5 3.5a6.4 6.4 0 0 0 0 5M16.5 3.5a6.4 6.4 0 0 1 0 5M4.5 1a10 10 0 0 0 0 10M19.5 1a10 10 0 0 1 0 10"/></>,
   satellite: <><path d="m4 16 5-5 5 5-5 5-5-5ZM14 6l5-4 4 5-5 5-4-6Z"/><path d="M15 18a5 5 0 0 0 5-5M15 22a9 9 0 0 0 9-9"/></>,
   battery: <><rect x="3" y="6" width="17" height="12" rx="2"/><path d="M20 10h2v4h-2"/></>,
@@ -194,18 +202,24 @@ function FilterChips<T extends string>({ options, selected, onToggle }: {
   )
 }
 
-export default function VehicleListPanel({ vehicles, filter, onFilterChange, onVehicleSelect, onAddVehicle, onClose, compact, onToggleCompact }: Props) {
+export default function VehicleListPanel({ vehicles, groups: fleetGroups, filter, onFilterChange, onVehicleSelect, onAddVehicle, onAddGroup, onAddDriver, onClose, compact, onToggleCompact }: Props) {
   const { t, isRTL } = useLanguage()
   const [now, setNow] = useState(() => Date.now())
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
+  const [fleetView, setFleetView] = useState<'vehicles' | 'groups'>('vehicles')
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(['moving', 'idle', 'offline']))
+  const [openBrowserGroups, setOpenBrowserGroups] = useState<Set<string>>(() => new Set(fleetGroups.filter(group => group.parentId === null).map(group => group.id)))
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(['v001']))
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [localFilter, setLocalFilter] = useState<FleetFilter>(filter)
   const [refreshing, setRefreshing] = useState(false)
   const [notice, setNotice] = useState('')
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [addMenuPosition, setAddMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const addButtonRef = useRef<HTMLButtonElement>(null)
+  const addMenuRef = useRef<HTMLDivElement>(null)
   const [indicatorStyle, setIndicatorStyle] = useState<IndicatorStyle>(() => {
     try { return window.localStorage.getItem('fleet-vehicle-indicator-style') === 'symbols' ? 'symbols' : 'uniform' }
     catch { return 'uniform' }
@@ -213,6 +227,41 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
   const [indicatorStyleOpen, setIndicatorStyleOpen] = useState(false)
 
   useEffect(() => setLocalFilter(filter), [filter])
+  useEffect(() => {
+    if (!addMenuOpen) return
+    const updatePosition = () => {
+      const rect = addButtonRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = 196
+      const height = 142
+      const left = isRTL ? rect.right - width : rect.left
+      setAddMenuPosition({
+        left: Math.max(8, Math.min(window.innerWidth - width - 8, left)),
+        top: Math.max(8, Math.min(window.innerHeight - height - 8, rect.bottom + 6)),
+      })
+    }
+    const closeIfOutside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!addButtonRef.current?.contains(target) && !addMenuRef.current?.contains(target)) setAddMenuOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAddMenuOpen(false)
+        addButtonRef.current?.focus()
+      }
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    document.addEventListener('pointerdown', closeIfOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+      document.removeEventListener('pointerdown', closeIfOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [addMenuOpen, isRTL])
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000)
     return () => window.clearInterval(timer)
@@ -229,12 +278,13 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
     const matchesGlobal = (filter.statuses.length === 0 || filter.statuses.includes(v.status))
       && (filter.types.length === 0 || filter.types.includes(v.vehicleType))
       && (filter.zones.length === 0 || filter.zones.includes(v.zone))
+      && matchesGroupFilter(v.groupId, filter.groupIds, fleetGroups)
       && v.fuelLevel >= filter.minFuel
       && (filter.driversOnly === 'all'
         || (filter.driversOnly === 'assigned' && v.driver !== 'Unassigned')
         || (filter.driversOnly === 'unassigned' && v.driver === 'Unassigned'))
     return matchesQuery && matchesStatus && matchesGlobal
-  }), [vehicles, filter, query, statusFilter])
+  }), [vehicles, filter, fleetGroups, query, statusFilter])
 
   const groups = useMemo(() => {
     const buckets = new Map<string, Vehicle[]>()
@@ -249,6 +299,53 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
     const statusOrder = ['moving', 'idle', 'offline']
     return [...buckets.entries()].sort(([a], [b]) => groupBy === 'status' ? statusOrder.indexOf(a) - statusOrder.indexOf(b) : a.localeCompare(b))
   }, [filtered, groupBy, selectedIds])
+
+  const browserChildren = useMemo(() => {
+    const children = new Map<string | null, FleetGroup[]>()
+    fleetGroups.forEach(group => children.set(group.parentId, [...(children.get(group.parentId) ?? []), group]))
+    return children
+  }, [fleetGroups])
+
+  const toggleBrowserGroup = (id: string) => setOpenBrowserGroups(current => {
+    const next = new Set(current)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  const renderBrowserGroup = (group: FleetGroup, depth: number): React.ReactNode => {
+    const children = browserChildren.get(group.id) ?? []
+    const branchIds = getGroupBranchIds(group.id, fleetGroups)
+    const groupVehicles = filtered.filter(vehicle => vehicle.groupId === group.id)
+    const totalCount = filtered.filter(vehicle => vehicle.groupId && branchIds.has(vehicle.groupId)).length
+    const isOpen = openBrowserGroups.has(group.id)
+    return (
+      <div className="fleet-browser-node" key={group.id}>
+        <button className="fleet-browser-group-row" style={{ '--group-depth': depth } as React.CSSProperties} onClick={() => toggleBrowserGroup(group.id)} aria-expanded={isOpen}>
+          <span className={`fleet-group-chevron${isOpen ? ' is-open' : ''}`}><Icon name="chevron" size={16} /></span>
+          <Icon name="group" size={15} />
+          <strong>{getFleetGroupDisplayName(group, t)}</strong>
+          <span className="fleet-browser-count">{totalCount}</span>
+        </button>
+        {isOpen && <div className="fleet-browser-children">
+          {children.map(child => renderBrowserGroup(child, depth + 1))}
+          {groupVehicles.map(vehicle => (
+            <div className="fleet-browser-vehicle" key={vehicle.id} style={{ '--group-depth': depth + 1 } as React.CSSProperties}>
+              <VehicleStatusCard
+                vehicle={vehicle}
+                now={now}
+                indicatorStyle={indicatorStyle}
+                selected={selectedIds.has(vehicle.id)}
+                onSelect={() => onVehicleSelect(vehicle)}
+                onToggleSelected={() => toggleSelected(vehicle.id)}
+                onCopy={() => { navigator.clipboard?.writeText(vehicle.location); showNotice(t('location_copied')) }}
+              />
+            </div>
+          ))}
+          {children.length === 0 && groupVehicles.length === 0 && <div className="fleet-browser-empty">{t('no_vehicles_in_group')}</div>}
+        </div>}
+      </div>
+    )
+  }
 
   const toggleGroup = (key: string) => setOpenGroups(current => {
     const next = new Set(current)
@@ -332,6 +429,9 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
             {(['all', 'assigned', 'unassigned'] as const).map(value => <button key={value} className={localFilter.driversOnly === value ? 'is-active' : ''} onClick={() => setLocalFilter(current => ({ ...current, driversOnly: value }))}>{value === 'all' ? t('filter_any') : value === 'assigned' ? t('filter_assigned') : t('filter_unassigned')}</button>)}
           </div>
         </FilterSection>
+        <FilterSection label={t('filter_vehicle_groups')}>
+          <GroupTreeFilter groups={fleetGroups} selectedIds={localFilter.groupIds} onToggle={groupId => setLocalFilter(current => ({ ...current, groupIds: toggleValue(current.groupIds, groupId) }))} />
+        </FilterSection>
         <div className="filter-actions">
           <button onClick={() => setLocalFilter(defaultFilter)}>{t('filter_reset')}</button>
           <button onClick={() => { onFilterChange(localFilter); setFiltersOpen(false) }}>{t('filter_apply')}</button>
@@ -351,9 +451,16 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
             <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search_name_plate')} aria-label={t('search_placeholder')} />
             {query && <button onClick={() => setQuery('')} aria-label={t('clear_search')}><Icon name="close" size={14} /></button>}
           </label>
-          <button className="fleet-primary-action" onClick={onAddVehicle}>
-            <Icon name="plus" size={16} /><span>{t('add_vehicle')}</span>
+          <button ref={addButtonRef} className="fleet-primary-action" aria-haspopup="menu" aria-expanded={addMenuOpen} aria-controls="fleet-add-menu" onClick={() => setAddMenuOpen(open => !open)}>
+            <Icon name="plus" size={16} /><span>{t('add')}</span><Icon name="chevron" size={14} />
           </button>
+          {addMenuOpen && addMenuPosition && createPortal(
+            <div ref={addMenuRef} id="fleet-add-menu" className="fleet-add-menu" role="menu" aria-label={t('add')} style={{ top: addMenuPosition.top, left: addMenuPosition.left }}>
+              <button role="menuitem" onClick={() => { setAddMenuOpen(false); onAddVehicle() }}><Icon name="vehicle" size={16} />{t('add_vehicle')}</button>
+              <button role="menuitem" onClick={() => { setAddMenuOpen(false); onAddGroup() }}><Icon name="group" size={16} />{t('add_group')}</button>
+              <button role="menuitem" onClick={() => { setAddMenuOpen(false); onAddDriver() }}><Icon name="driver" size={16} />{t('add_driver')}</button>
+            </div>, document.body,
+          )}
           <button className={`fleet-icon-button${refreshing ? ' is-spinning' : ''}`} onClick={handleRefresh} aria-label={t('refresh')} title={t('refresh')}><Icon name="refresh" size={16} /></button>
           <button className="fleet-icon-button fleet-panel-size-button" onClick={onToggleCompact} aria-label={compact ? t('panel_expand') : t('panel_compact')} title={compact ? t('panel_expand') : t('panel_compact')}><Icon name={compact ? 'expand' : 'collapse'} size={16} /></button>
           <button className="fleet-icon-button" onClick={onClose} aria-label={t('ctrl_close')} title={t('ctrl_close')}><Icon name="close" size={16} /></button>
@@ -377,7 +484,7 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
             })}
           </div>
           <button className={`fleet-filter-button${filtersOpen ? ' is-active' : ''}`} onClick={() => setFiltersOpen(value => !value)}>
-            <Icon name="filter" size={18} /><span>{t('filter_btn')}</span>{(filter.statuses.length + filter.types.length + filter.zones.length + (filter.minFuel > 0 ? 1 : 0) + (filter.driversOnly !== 'all' ? 1 : 0)) > 0 && <span className="filter-active-dot" />}
+            <Icon name="filter" size={18} /><span>{t('filter_btn')}</span>{(filter.statuses.length + filter.types.length + filter.zones.length + filter.groupIds.length + (filter.minFuel > 0 ? 1 : 0) + (filter.driversOnly !== 'all' ? 1 : 0)) > 0 && <span className="filter-active-dot" />}
           </button>
           <div className="indicator-style-control">
             <button className={`fleet-icon-button${indicatorStyleOpen ? ' is-active' : ''}`} onClick={() => setIndicatorStyleOpen(open => !open)} aria-label={t('vehicle_indicator_style')} title={t('vehicle_indicator_style')} aria-expanded={indicatorStyleOpen}>
@@ -393,11 +500,20 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
           </div>
         </div>
 
+        <div className="fleet-view-switch" role="group" aria-label={t('fleet_view')}>
+          <button className={fleetView === 'vehicles' ? 'is-active' : ''} onClick={() => setFleetView('vehicles')} aria-pressed={fleetView === 'vehicles'}>
+            <Icon name="vehicle" size={14} />{t('fleet_view_vehicles')}
+          </button>
+          <button className={fleetView === 'groups' ? 'is-active' : ''} onClick={() => setFleetView('groups')} aria-pressed={fleetView === 'groups'}>
+            <Icon name="group" size={14} />{t('fleet_view_groups')}
+          </button>
+        </div>
+
         {notice && <div className="fleet-notice" role="status">{notice}</div>}
       </div>
 
       <div className="fleet-list">
-        <div className="vehicle-metrics-header" aria-label="Vehicle metrics">
+        {fleetView === 'vehicles' && <div className="vehicle-metrics-header" aria-label="Vehicle metrics">
           <span className="metric-header-spacer" aria-hidden="true" />
           <span className="metric-header-spacer" aria-hidden="true" />
           <span className="metric-header-icon" title={t('lbl_speed')} aria-label={t('lbl_speed')}><Icon name="speed" size={20}/></span>
@@ -408,9 +524,9 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
               ['satellite', 'icon_satellites'], ['guard', 'icon_authorization'], ['wasl', 'icon_wasl'], ['camera', 'icon_camera'],
             ] as const).map(([icon, label]) => <span className="metric-header-icon" key={icon} title={t(label)} aria-label={t(label)}><Icon name={icon} size={20}/></span>)}
           </div>
-        </div>
-        {groups.length === 0 && <div className="fleet-empty">{t('no_vehicles')}</div>}
-        {groups.map(([key, groupVehicles]) => {
+        </div>}
+        {fleetView === 'vehicles' && groups.length === 0 && <div className="fleet-empty">{t('no_vehicles')}</div>}
+        {fleetView === 'vehicles' && groups.map(([key, groupVehicles]) => {
           const isOpen = openGroups.has(key)
           const groupStatus = key === 'moving' || key === 'idle' || key === 'offline' ? key : undefined
           return (
@@ -442,6 +558,8 @@ export default function VehicleListPanel({ vehicles, filter, onFilterChange, onV
             </div>
           )
         })}
+        {fleetView === 'groups' && (browserChildren.get(null) ?? []).length === 0 && <div className="fleet-empty">{t('groups_empty')}</div>}
+        {fleetView === 'groups' && (browserChildren.get(null) ?? []).map(group => renderBrowserGroup(group, 0))}
       </div>
     </section>
     {filterFlyout}
