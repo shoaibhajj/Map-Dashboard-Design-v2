@@ -24,7 +24,7 @@ const statusDot: Record<string, string> = {
 }
 
 export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSelect, onOpenFilter, filterActive, hideFleetControls = false, hideRightControls = false, mapLegend, onMapLegendChange }: Props) {
-  const { t, lang, setLang, isRTL } = useLanguage()
+  const { t, lang, setLang } = useLanguage()
   const [activeFilter, setActiveFilter] = useState<string>('all')
   const [showResults, setShowResults] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -109,7 +109,6 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
       alignItems: 'center',
       gap: 8,
       pointerEvents: 'none',
-      flexDirection: isRTL ? 'row-reverse' : 'row',
     }}>
 
       {!hideFleetControls && <>
@@ -247,7 +246,7 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
       <div style={{ flex: 1 }} />
 
       {/* Right controls */}
-      {!hideRightControls && <div style={{ display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'all', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+      {!hideRightControls && <div style={{ display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'all' }}>
         {/* Language toggle */}
         <button
           onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}

@@ -270,13 +270,13 @@ interface Props {
   onVehicleSelect: (v: Vehicle) => void
   onMapClick: () => void
   darkMode: boolean
-  leftPanelOffset: number
+  panelInlineOffset: number
   mapLegend: MapLegendConfig
 }
 
 const ANIM_SPEED = 1 / 20000 // fraction of route per ms → full route in ~20 s
 
-export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute, onVehicleSelect, onMapClick, darkMode, leftPanelOffset, mapLegend }: Props) {
+export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute, onVehicleSelect, onMapClick, darkMode, panelInlineOffset, mapLegend }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<mapboxgl.Map | null>(null)
   const markersRef    = useRef(new Map<string, mapboxgl.Marker>())
@@ -553,9 +553,9 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       {/* ── Control cluster — BOTTOM LEFT ── */}
       {!tokenMissing && (
         <div style={{
-          position: 'absolute', left: leftPanelOffset || 10, bottom: 28,
+          position: 'absolute', insetInlineStart: panelInlineOffset || 10, bottom: 28,
           display: 'flex', flexDirection: 'column', gap: 4, zIndex: 20,
-          transition: 'left 180ms ease',
+          transition: 'inset-inline-start 180ms ease',
         }}>
           {/* Layers / style switcher */}
           <div style={{ position: 'relative' }}>
@@ -568,7 +568,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
             </Btn>
             {showStyleMenu && (
               <div style={{
-                position: 'absolute', left: 42, bottom: 0,
+                position: 'absolute', insetInlineStart: 42, bottom: 0,
                 background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(18px)',
                 borderRadius: 10, padding: '4px 0',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.22)', minWidth: 132, zIndex: 40,

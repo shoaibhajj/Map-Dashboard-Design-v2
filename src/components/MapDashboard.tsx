@@ -74,8 +74,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
     }
   }, [])
 
-  const leftPanelOpen = vehiclesPanelOpen
-  const leftPanelOffset = vehiclesPanelOpen ? vehiclesPanelCompact ? 318 : 548 : 0
+  const panelInlineOffset = vehiclesPanelOpen ? vehiclesPanelCompact ? 318 : 548 : 0
   const filterCardOpen = rightCards.some(card => card.type === 'filter')
 
   return (
@@ -90,7 +89,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
           onVehicleSelect={handleVehicleSelect}
           onMapClick={handleMapClick}
           darkMode={darkMode}
-          leftPanelOffset={leftPanelOffset}
+          panelInlineOffset={panelInlineOffset}
           mapLegend={mapLegend}
         />
 
@@ -116,7 +115,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
           onVehicleSelect={handleVehicleSelect}
           onOpenFilter={openFilterCard}
           filterActive={filterCardOpen}
-          hideFleetControls={leftPanelOpen}
+          hideFleetControls={vehiclesPanelOpen}
           hideRightControls={Boolean(selectedVehicle)}
           mapLegend={mapLegend}
           onMapLegendChange={setMapLegend}
@@ -124,7 +123,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
 
         <FABStack
           vehiclesPanelOpen={vehiclesPanelOpen}
-          leftPanelOffset={leftPanelOffset}
+          panelInlineOffset={panelInlineOffset}
           onOpen={handleFABClick}
         />
 
@@ -155,7 +154,7 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
           />
         )}
 
-        <BottomSheet vehicles={allVehicles} height={fleetDrawerHeight} onHeightChange={setFleetDrawerHeight} />
+        <BottomSheet vehicles={allVehicles} selectedVehicle={selectedVehicle} height={fleetDrawerHeight} onHeightChange={setFleetDrawerHeight} onVehicleSelect={handleVehicleSelect} />
       </div>
 
       {addVehicleOpen && (

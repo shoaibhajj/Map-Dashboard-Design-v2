@@ -4,7 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 
 interface Props {
   vehiclesPanelOpen: boolean
-  leftPanelOffset: number
+  panelInlineOffset: number
   onOpen: (type: FABType) => void
 }
 
@@ -18,7 +18,7 @@ function TruckIcon() {
   )
 }
 
-export default function FABStack({ vehiclesPanelOpen, leftPanelOffset, onOpen }: Props) {
+export default function FABStack({ vehiclesPanelOpen, panelInlineOffset, onOpen }: Props) {
   const { t, isRTL } = useLanguage()
   const [hoveredType, setHoveredType] = useState<FABType | null>(null)
 
@@ -27,16 +27,13 @@ export default function FABStack({ vehiclesPanelOpen, leftPanelOffset, onOpen }:
   ]
 
   const isActive = () => vehiclesPanelOpen
-  const leftPanelOpen = vehiclesPanelOpen
-
   return (
     <div style={{
       position: 'absolute',
-      top: leftPanelOpen ? 12 : 72,
-      left: isRTL ? undefined : leftPanelOpen ? leftPanelOffset : 10,
-      right: isRTL ? leftPanelOpen ? leftPanelOffset : 10 : undefined,
+      top: vehiclesPanelOpen ? 12 : 72,
+      insetInlineStart: vehiclesPanelOpen ? panelInlineOffset : 10,
       display: 'flex', flexDirection: 'column', gap: 5, zIndex: 26,
-      transition: 'left 180ms ease, right 180ms ease, top 180ms ease',
+      transition: 'inset-inline-start 180ms ease, top 180ms ease',
     }}>
       {fabDefs.map(fab => {
         const active = isActive()

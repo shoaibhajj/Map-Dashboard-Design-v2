@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Vehicle } from '../data/vehicles'
 import { useLanguage } from '../contexts/LanguageContext'
 
 type View = 'status' | 'raw'
-interface Props { vehicles: Vehicle[]; height: number; onHeightChange: (height: number) => void }
+type RawDisplay = 'row' | 'table'
+interface Props { vehicles: Vehicle[]; selectedVehicle: Vehicle | null; height: number; onHeightChange: (height: number) => void; onVehicleSelect: (vehicle: Vehicle) => void }
 const PAGE_SIZE = 5
 const MIN_HEIGHT = 190
 
@@ -17,25 +18,28 @@ function Icon({ name, size = 16 }: { name: 'up' | 'down' | 'report' | 'export'; 
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
 
-export default function BottomSheet({ vehicles, height, onHeightChange }: Props) {
+export default function BottomSheet({ vehicles, selectedVehicle, height, onHeightChange, onVehicleSelect }: Props) {
   const { t, isRTL } = useLanguage()
   const [view, setView] = useState<View>('status')
+  const [rawDisplay, setRawDisplay] = useState<RawDisplay>('row')
   const [page, setPage] = useState(1)
   const [reportOpen, setReportOpen] = useState(false)
   const dragStart = useRef<{ y: number; height: number } | null>(null)
   const moved = useRef(false)
   const startedOnDock = useRef(false)
+  const activeVehicle = selectedVehicle ? vehicles.find(vehicle => vehicle.id === selectedVehicle.id) ?? selectedVehicle : null
   const quality = (v: Vehicle) => v.telemetry.gpsState === 'offline' || v.telemetry.gpsState === 'not_installed' ? '—' : v.telemetry.satellites >= 8 ? t('fleet_quality_good') : t('fleet_quality_fair')
   const signal = (v: Vehicle) => v.telemetry.gpsState === 'online' ? t('gps_online') : v.telemetry.gpsState === 'weak' ? t('gps_weak') : v.telemetry.gpsState === 'offline' ? t('status_offline') : t('telemetry_not_installed')
-  const rawRows = useMemo(() => vehicles.flatMap(v => [
-    { time: v.lastUpdate, vehicle: v.plate, point: t('fleet_latitude'), value: v.lat.toFixed(5), unit: '°' },
-    { time: v.lastUpdate, vehicle: v.plate, point: t('fleet_longitude'), value: v.lng.toFixed(5), unit: '°' },
-    { time: v.lastUpdate, vehicle: v.plate, point: t('lbl_speed'), value: String(v.speed), unit: 'km/h' },
-    { time: v.lastUpdate, vehicle: v.plate, point: t('fleet_satellites'), value: String(v.telemetry.satellites), unit: '' },
-    { time: v.lastUpdate, vehicle: v.plate, point: t('lbl_odometer'), value: v.odometer.toLocaleString(), unit: 'km' },
-    { time: v.lastUpdate, vehicle: v.plate, point: t('fleet_battery'), value: v.telemetry.batteryVoltage?.toFixed(1) ?? '—', unit: 'V' },
-  ]), [vehicles, t])
-  const rows = view === 'status' ? vehicles : rawRows
+  useEffect(() => {
+    setPage(1)
+    setRawDisplay('row')
+    if (!selectedVehicle) setView(current => current === 'raw' ? 'status' : current)
+  }, [selectedVehicle?.id])
+
+  const rawRows = useMemo(() => activeVehicle?.rawDeviceData ? [
+    { time: activeVehicle.lastUpdate, name: activeVehicle.name, vehicle: activeVehicle.plate, point: 'raw', value: activeVehicle.rawDeviceData.raw, unit: '' },
+  ] : [], [activeVehicle])
+  const rows = view === 'status' ? vehicles : rawDisplay === 'row' ? [] : rawRows
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const moving = vehicles.filter(v => v.status === 'moving').length
@@ -77,15 +81,21 @@ export default function BottomSheet({ vehicles, height, onHeightChange }: Props)
     onHeightChange(height === 0 ? Math.round(window.innerHeight * 0.48) : 0)
   }
   const exportCsv = () => {
+    const statusHeader = [t('fleet_vehicle_name'), t('lbl_status'), t('lbl_plate'), 'Q', t('fleet_device_type'), t('device_model'), t('lbl_last_update'), t('fleet_site'), t('fleet_satellites'), 'IG', t('fleet_device_signal')]
+    const statusData = (source: Vehicle[]) => source.map(v => [v.name, t(`status_${v.status}` as 'status_moving'), v.plate, quality(v), t(`type_${v.vehicleType}` as 'type_truck'), 'Queclink GV300', v.lastUpdate, v.location, v.telemetry.satellites, v.status === 'offline' ? '—' : 'ON', signal(v)])
     const header = view === 'status'
-      ? [t('lbl_status'), t('lbl_plate'), 'Q', t('fleet_device_type'), t('device_model'), t('lbl_last_update'), t('fleet_site'), t('fleet_satellites'), 'IG', t('fleet_device_signal')]
-      : [t('fleet_time'), t('lbl_plate'), t('fleet_data_point'), t('fleet_value'), t('fleet_unit')]
+      ? statusHeader
+      : rawDisplay === 'row'
+        ? [t('fleet_vehicle_name'), t('lbl_plate'), t('fleet_raw_field')]
+        : [t('fleet_vehicle_name'), t('fleet_time'), t('lbl_plate'), t('fleet_data_point'), t('fleet_value'), t('fleet_unit')]
     const data = view === 'status'
-      ? vehicles.map(v => [t(`status_${v.status}` as 'status_moving'), v.plate, quality(v), t(`type_${v.vehicleType}` as 'type_truck'), 'Queclink GV300', v.lastUpdate, v.location, v.telemetry.satellites, v.status === 'offline' ? '—' : 'ON', signal(v)])
-      : rawRows.map(r => [r.time, r.vehicle, r.point, r.value, r.unit])
+      ? statusData(vehicles)
+      : rawDisplay === 'row'
+        ? activeVehicle?.rawDeviceData ? [[activeVehicle.name, activeVehicle.plate, activeVehicle.rawDeviceData.raw]] : []
+        : rawRows.map(r => [r.name, r.time, r.vehicle, r.point, r.value, r.unit])
     const csv = [header, ...data].map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\r\n')
     const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
-    const link = document.createElement('a'); link.href = url; link.download = view === 'status' ? 'fleet-status.csv' : 'gps-raw-data.csv'; link.click(); URL.revokeObjectURL(url)
+    const link = document.createElement('a'); link.href = url; link.download = view === 'status' ? 'fleet-status.csv' : rawDisplay === 'row' ? 'vehicle-row.csv' : 'gps-raw-data.csv'; link.click(); URL.revokeObjectURL(url)
   }
 
   const th: React.CSSProperties = { padding: '11px 14px', textAlign: isRTL ? 'right' : 'left', color: 'var(--muted-foreground)', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '.045em', borderBottom: '1px solid var(--border)' }
@@ -103,7 +113,10 @@ export default function BottomSheet({ vehicles, height, onHeightChange }: Props)
         <section style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height, minHeight: dragStart.current ? 0 : MIN_HEIGHT, zIndex: 50, display: 'flex', flexDirection: 'column', background: 'color-mix(in srgb, var(--card) 97%, transparent)', backdropFilter: 'blur(20px)', border: '1px solid var(--border)', borderBottom: 0, borderRadius: '15px 15px 0 0', boxShadow: '0 -8px 30px rgba(20,35,60,.16)', overflow: 'hidden', transition: dragStart.current ? 'none' : 'height .18s ease', pointerEvents: 'auto' }}>
           <div onPointerDown={startDrag} style={{ height: 20, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'ns-resize', touchAction: 'none' }}><div style={{ width: 42, height: 4, borderRadius: 9, background: 'var(--muted-foreground)', opacity: .45 }} /></div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 18px', minHeight: 46, flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
-            {(['status', 'raw'] as View[]).map(id => <button key={id} onClick={() => { setView(id); setPage(1); setReportOpen(false) }} style={{ height: 46, padding: '0 14px', border: 0, borderBottom: view === id ? '2px solid var(--primary)' : '2px solid transparent', background: 'transparent', color: view === id ? 'var(--primary)' : 'var(--muted-foreground)', fontSize: 13, fontWeight: view === id ? 700 : 600, cursor: 'pointer' }}>{id === 'status' ? t('fleet_status_tab') : t('fleet_raw_tab')}</button>)}
+            {(['status', 'raw'] as View[]).map(id => {
+              const disabled = id === 'raw' && !selectedVehicle
+              return <button key={id} disabled={disabled} title={disabled ? t('fleet_select_vehicle_first') : undefined} onClick={() => { if (disabled) return; setView(id); if (id === 'raw') setRawDisplay('row'); setPage(1); setReportOpen(false) }} style={{ height: 46, padding: '0 14px', border: 0, borderBottom: view === id ? '2px solid var(--primary)' : '2px solid transparent', background: 'transparent', color: disabled ? 'var(--muted-foreground)' : view === id ? 'var(--primary)' : 'var(--muted-foreground)', fontSize: 13, fontWeight: view === id ? 700 : 600, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .45 : 1 }}>{id === 'status' ? t('fleet_status_tab') : t('fleet_raw_tab')}</button>
+            })}
             <div style={{ flex: 1 }} />
             <button onClick={() => setReportOpen(value => !value)} style={{ ...card, display: 'flex', alignItems: 'center', gap: 7, padding: '7px 11px', cursor: 'pointer', fontSize: 12, fontWeight: 650 }}><Icon name="report" />{t('view_report')}</button>
             <button onClick={exportCsv} style={{ ...card, display: 'flex', alignItems: 'center', gap: 7, padding: '7px 11px', cursor: 'pointer', fontSize: 12, fontWeight: 650 }}><Icon name="export" />{t('fleet_export')}</button>
@@ -111,14 +124,47 @@ export default function BottomSheet({ vehicles, height, onHeightChange }: Props)
           </div>
           {reportOpen && <div style={{ position: 'absolute', top: 56, insetInlineEnd: 170, zIndex: 2, ...card, boxShadow: '0 8px 24px rgba(20,35,60,.14)', padding: 14, minWidth: 210, fontSize: 12 }}><strong style={{ display: 'block', marginBottom: 8 }}>{t('fleet_report_summary')}</strong><div>{t('status_moving')}: {moving}</div><div>{t('status_idle')}: {idle}</div><div>{t('status_offline')}: {offline}</div><div>{t('fleet_total_vehicles')}: {vehicles.length}</div></div>}
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <table style={{ width: '100%', minWidth: view === 'status' ? 1120 : 740, borderCollapse: 'collapse' }}>
-              <thead><tr>{view === 'status' ? [t('lbl_status'), t('lbl_plate'), 'Q', t('fleet_device_type'), t('device_model'), t('lbl_last_update'), t('fleet_site'), t('fleet_satellites'), 'IG', t('fleet_device_signal')].map((label, i) => <th key={i} style={th}>{label}</th>) : [t('fleet_time'), t('lbl_plate'), t('fleet_data_point'), t('fleet_value'), t('fleet_unit')].map((label, i) => <th key={i} style={th}>{label}</th>)}</tr></thead>
-              <tbody>{pageRows.map((row, i) => view === 'status' ? <tr key={(row as Vehicle).id} style={{ background: i % 2 ? 'color-mix(in srgb, var(--secondary) 42%, transparent)' : 'transparent' }}>
-                {(() => { const v = row as Vehicle; const dot = v.status === 'moving' ? '#16a765' : v.status === 'idle' ? '#d58a18' : '#e04f55'; return <><td style={td}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><i style={{ width: 7, height: 7, borderRadius: '50%', background: dot }} />{t(`status_${v.status}` as 'status_moving')}</span></td><td style={{ ...td, fontWeight: 700 }}>{v.plate}</td><td style={td}>{quality(v)}</td><td style={td}>{t(`type_${v.vehicleType}` as 'type_truck')}</td><td style={td}>Queclink GV300</td><td style={td}>{v.lastUpdate}</td><td style={{ ...td, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.location}</td><td style={td}>{v.telemetry.satellites}</td><td style={td}>{v.status === 'offline' ? '—' : 'ON'}</td><td style={td}>{signal(v)}</td></> })()}
-              </tr> : (() => { const r = row as typeof rawRows[number]; return <tr key={`${r.vehicle}-${r.point}`} style={{ background: i % 2 ? 'color-mix(in srgb, var(--secondary) 42%, transparent)' : 'transparent' }}><td style={td}>{r.time}</td><td style={{ ...td, fontWeight: 700 }}>{r.vehicle}</td><td style={td}>{r.point}</td><td style={td}>{r.value}</td><td style={td}>{r.unit}</td></tr> })())}</tbody>
-            </table>
+            {view === 'raw' && <div role="tablist" aria-label={t('fleet_raw_tab')} style={{ display: 'flex', gap: 4, padding: '9px 14px 7px', borderBottom: '1px solid var(--border)' }}>
+              {(['row', 'table'] as RawDisplay[]).map(id => <button key={id} role="tab" aria-selected={rawDisplay === id} onClick={() => { setRawDisplay(id); setPage(1) }} style={{ padding: '6px 11px', border: `1px solid ${rawDisplay === id ? 'color-mix(in srgb, var(--primary) 30%, var(--border))' : 'var(--border)'}`, borderRadius: 7, background: rawDisplay === id ? 'color-mix(in srgb, var(--primary) 9%, var(--card))' : 'var(--card)', color: rawDisplay === id ? 'var(--primary)' : 'var(--muted-foreground)', fontSize: 11, fontWeight: rawDisplay === id ? 700 : 600, cursor: 'pointer' }}>{id === 'row' ? t('fleet_raw_row') : t('fleet_raw_table')}</button>)}
+            </div>}
+            {view === 'raw' && rawRows.length === 0 ? (
+              <div className="fleet-raw-empty">{t('fleet_raw_unavailable')}</div>
+            ) : view === 'raw' && rawDisplay === 'row' ? (
+              activeVehicle?.rawDeviceData ? <section className="fleet-raw-record" aria-label={t('fleet_raw_row')}>
+                <div className="fleet-raw-record-heading"><strong>{activeVehicle.name}</strong><span>{activeVehicle.plate}</span></div>
+                <div className="fleet-raw-record-label">{t('fleet_raw_field')}</div>
+                <pre className="fleet-raw-payload" dir="ltr">{JSON.stringify(activeVehicle.rawDeviceData)}</pre>
+              </section> : null
+            ) : (
+              <table style={{ width: '100%', minWidth: view === 'status' ? 1160 : 850, borderCollapse: 'collapse' }}>
+                <thead><tr>{(view === 'status' ? [t('fleet_vehicle_name'), t('lbl_status'), t('lbl_plate'), 'Q', t('fleet_device_type'), t('device_model'), t('lbl_last_update'), t('fleet_site'), t('fleet_satellites'), 'IG', t('fleet_device_signal')] : [t('fleet_vehicle_name'), t('fleet_time'), t('lbl_plate'), t('fleet_data_point'), t('fleet_value'), t('fleet_unit')]).map((label, i) => <th key={i} style={th}>{label}</th>)}</tr></thead>
+                <tbody>{pageRows.map((row, i) => {
+                  const zebra = { background: i % 2 ? 'color-mix(in srgb, var(--secondary) 42%, transparent)' : 'transparent' }
+                  if (view === 'status') {
+                    const v = row as Vehicle
+                    const dot = v.status === 'moving' ? '#16a765' : v.status === 'idle' ? '#d58a18' : '#e04f55'
+                    return <tr
+                      key={v.id}
+                      className={`fleet-data-row is-selectable${selectedVehicle?.id === v.id ? ' is-selected' : ''}`}
+                      style={{ ...zebra, cursor: 'pointer' }}
+                      tabIndex={0}
+                      aria-selected={selectedVehicle?.id === v.id}
+                      onClick={() => onVehicleSelect(v)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          onVehicleSelect(v)
+                        }
+                      }}
+                    ><td style={{ ...td, fontWeight: 700 }}>{v.name}</td><td style={td}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><i style={{ width: 7, height: 7, borderRadius: '50%', background: dot }} />{t(`status_${v.status}` as 'status_moving')}</span></td><td style={{ ...td, fontWeight: 700 }}>{v.plate}</td><td style={td}>{quality(v)}</td><td style={td}>{t(`type_${v.vehicleType}` as 'type_truck')}</td><td style={td}>Queclink GV300</td><td style={td}>{v.lastUpdate}</td><td style={{ ...td, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.location}</td><td style={td}>{v.telemetry.satellites}</td><td style={td}>{v.status === 'offline' ? '—' : 'ON'}</td><td style={td}>{signal(v)}</td></tr>
+                  }
+                  const r = row as typeof rawRows[number]
+                  return <tr key={`${r.vehicle}-${r.point}`} style={zebra}><td style={{ ...td, fontWeight: 700 }}>{r.name}</td><td style={td}>{r.time}</td><td style={{ ...td, fontWeight: 700 }}>{r.vehicle}</td><td style={td}>{r.point}</td><td style={{ ...td, whiteSpace: 'normal', minWidth: 320, maxWidth: '58vw' }}><code className="fleet-raw-table-value" dir="ltr">{r.value}</code></td><td style={td}>{r.unit}</td></tr>
+                })}</tbody>
+              </table>
+            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', minHeight: 48, flexShrink: 0, borderTop: '1px solid var(--border)', fontSize: 11.5, color: 'var(--muted-foreground)' }}><span>{t('fleet_page')} {page} {t('fleet_of')} {pageCount} · {rows.length} {t('fleet_records')}</span><div style={{ display: 'flex', gap: 6 }}><button disabled={page <= 1} onClick={() => setPage(v => Math.max(1, v - 1))} style={{ ...card, padding: '6px 10px', cursor: page <= 1 ? 'default' : 'pointer', opacity: page <= 1 ? .45 : 1 }}>{t('fleet_previous')}</button><button disabled={page >= pageCount} onClick={() => setPage(v => Math.min(pageCount, v + 1))} style={{ ...card, padding: '6px 10px', cursor: page >= pageCount ? 'default' : 'pointer', opacity: page >= pageCount ? .45 : 1 }}>{t('fleet_next')}</button></div></div>
+          {(view === 'status' || rawDisplay === 'table') && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', minHeight: 48, flexShrink: 0, borderTop: '1px solid var(--border)', fontSize: 11.5, color: 'var(--muted-foreground)' }}><span>{t('fleet_page')} {page} {t('fleet_of')} {pageCount} · {rows.length} {t('fleet_records')}</span><div style={{ display: 'flex', gap: 6 }}><button disabled={page <= 1} onClick={() => setPage(v => Math.max(1, v - 1))} style={{ ...card, padding: '6px 10px', cursor: page <= 1 ? 'default' : 'pointer', opacity: page <= 1 ? .45 : 1 }}>{t('fleet_previous')}</button><button disabled={page >= pageCount} onClick={() => setPage(v => Math.min(pageCount, v + 1))} style={{ ...card, padding: '6px 10px', cursor: page >= pageCount ? 'default' : 'pointer', opacity: page >= pageCount ? .45 : 1 }}>{t('fleet_next')}</button></div></div>}
         </section>
       )}
     </div>

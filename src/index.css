@@ -284,6 +284,18 @@ html[dir="rtl"] .fleet-filter-flyout.is-panel-compact { right: calc(var(--sideba
 .fleet-filter-flyout-header > div { display: flex; align-items: center; gap: 8px; color: var(--foreground); font-size: 13px; }
 .fleet-filter-flyout-header button { display: grid; place-items: center; width: 28px; height: 28px; color: var(--muted-foreground); background: var(--secondary); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
 .floating-status-tooltip { position: fixed; z-index: 1200; display: block; width: 220px; padding: 10px 12px; color: var(--card); background: color-mix(in srgb, var(--foreground) 96%, transparent); border: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .28); transform: translate(-50%, -100%); pointer-events: none; text-align: start; }
+.fleet-data-row.is-selectable { cursor: pointer; transition: background-color .12s ease; }
+.fleet-data-row.is-selectable:hover td { background: color-mix(in srgb, var(--primary) 7%, var(--card)); }
+.fleet-data-row.is-selectable:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.fleet-data-row.is-selectable.is-selected td { background: color-mix(in srgb, var(--primary) 9%, var(--card)); }
+.fleet-raw-record { margin: 14px 18px; padding: 14px; color: var(--foreground); background: color-mix(in srgb, var(--secondary) 55%, var(--card)); border: 1px solid var(--border); border-radius: 10px; }
+.fleet-raw-record-heading { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.fleet-raw-record-heading strong { font-size: 13px; font-weight: 750; }
+.fleet-raw-record-heading span, .fleet-raw-record-label { color: var(--muted-foreground); font-size: 11px; }
+.fleet-raw-record-label { margin-bottom: 6px; font-weight: 700; }
+.fleet-raw-payload { max-height: 190px; margin: 0; padding: 10px 12px; overflow: auto; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: 7px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fleet-raw-table-value { display: block; max-height: 180px; overflow: auto; color: var(--foreground); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; word-break: break-all; }
+.fleet-raw-empty { display: grid; min-height: 120px; place-items: center; padding: 22px; color: var(--muted-foreground); font-size: 12px; text-align: center; }
 .floating-status-tooltip::after { content: ''; position: absolute; left: calc(50% - 5px); top: 100%; border: 5px solid transparent; border-top-color: color-mix(in srgb, var(--foreground) 96%, transparent); }
 .floating-status-tooltip strong, .floating-status-tooltip span { display: block; }
 .floating-status-tooltip strong { color: var(--card); font-size: 11.5px; }
