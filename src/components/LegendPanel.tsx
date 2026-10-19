@@ -1,4 +1,5 @@
 import { useLanguage } from '../contexts/LanguageContext'
+import { ColorPickerField } from './ColorPicker'
 import type { Vehicle, VehicleStatus } from '../data/vehicles'
 import {
   getMetricOptions,
@@ -58,17 +59,6 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
     fontWeight: 650,
     whiteSpace: 'nowrap',
   }
-  const colorStyle: React.CSSProperties = {
-    width: 34,
-    height: 30,
-    border: '1px solid var(--border)',
-    borderRadius: 7,
-    background: 'var(--card)',
-    padding: 3,
-    cursor: 'pointer',
-    flexShrink: 0,
-  }
-
   const updateRange = (id: string, patch: Partial<MapColorRange>) => {
     onChange({ ...config, ranges: config.ranges.map(range => range.id === id ? { ...range, ...patch } : range) })
   }
@@ -145,7 +135,11 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
             <div style={{ fontSize: 11, fontWeight: 750 }}>{t('map_status_colors')}</div>
             {STATUS_KEYS.map(status => (
               <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 8px', background: 'var(--secondary)', borderRadius: 8 }}>
-                <input type="color" value={config.statusColors[status]} aria-label={t(`status_${status}`)} onChange={event => onChange({ ...config, statusColors: { ...config.statusColors, [status]: event.target.value } })} style={colorStyle}/>
+                <ColorPickerField
+                  value={config.statusColors[status]}
+                  label={`${t(`status_${status}`)} · ${t('map_range_color')}`}
+                  onChange={color => onChange({ ...config, statusColors: { ...config.statusColors, [status]: color } })}
+                />
                 <span style={{ fontSize: 12, fontWeight: 650 }}>{t(`status_${status}`)}</span>
                 <span style={{ marginInlineStart: 'auto', width: 9, height: 9, borderRadius: '50%', background: config.statusColors[status], boxShadow: `0 0 7px ${config.statusColors[status]}88` }} />
               </div>
@@ -172,7 +166,7 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
 
             {config.ranges.map((range, index) => (
               <div key={range.id} style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) minmax(0,1fr) 30px', alignItems: 'center', gap: 6, padding: '7px', background: 'var(--secondary)', borderRadius: 8 }}>
-                <input type="color" value={range.color} aria-label={`${t('map_range_color')} ${index + 1}`} onChange={event => updateRange(range.id, { color: event.target.value })} style={colorStyle}/>
+                <ColorPickerField value={range.color} label={`${t('map_range_color')} ${index + 1}`} onChange={color => updateRange(range.id, { color })}/>
                 <label style={{ display: 'grid', gap: 3, fontSize: 9.5, color: 'var(--muted-foreground)' }}>{`${t('map_minimum')}${activeMetric?.unit ? ` (${activeMetric.unit})` : ''}`}<input type="number" min={activeMetric?.kind === 'temperature' ? undefined : activeMetric?.min} max={activeMetric?.max} step={activeMetric?.step ?? 1} value={range.min} onChange={event => updateRange(range.id, { min: Number(event.target.value) })} style={{ ...inputStyle, width: '100%', height: 29 }}/></label>
                 <label style={{ display: 'grid', gap: 3, fontSize: 9.5, color: 'var(--muted-foreground)' }}>{`${t('map_maximum')}${activeMetric?.unit ? ` (${activeMetric.unit})` : ''}`}<input type="number" min={activeMetric?.kind === 'temperature' ? undefined : activeMetric?.min} max={activeMetric?.max} step={activeMetric?.step ?? 1} value={range.max} onChange={event => updateRange(range.id, { max: Number(event.target.value) })} style={{ ...inputStyle, width: '100%', height: 29 }}/></label>
                 <button type="button" onClick={() => onChange({ ...config, ranges: config.ranges.filter(item => item.id !== range.id) })} aria-label={t('map_remove_range')} title={t('map_remove_range')} style={{ ...smallButton, width: 30, padding: 0, color: '#ef4444' }}>×</button>
@@ -196,7 +190,7 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 650 }}>
-              <input type="color" value={config.noDataColor} aria-label={t('map_no_reading')} onChange={event => onChange({ ...config, noDataColor: event.target.value })} style={colorStyle}/>
+              <ColorPickerField value={config.noDataColor} label={t('map_no_reading')} onChange={color => onChange({ ...config, noDataColor: color })}/>
               {t('map_no_data_color')}
             </div>
             <p style={{ margin: 0, padding: '8px 9px', borderRadius: 7, background: 'color-mix(in srgb, var(--primary) 8%, var(--card))', color: 'var(--muted-foreground)', fontSize: 10.5, lineHeight: 1.55 }}>
