@@ -1,20 +1,43 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'mapbox-gl/dist/mapbox-gl.css';
 @import 'tailwindcss';
 
 @theme {
   --font-sans: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+}
+
+@theme inline {
+  --color-ground: var(--background);
+  --color-surface: var(--card);
+  --color-surface2: var(--secondary);
+  --color-sidebar: var(--sidebar);
+  --color-popover: var(--popover);
+  --color-edge: var(--border);
+  --color-neon: var(--primary);
+  --color-neon-dim: var(--primary-light);
+  --color-leaf: var(--primary-deep);
+  --color-text: var(--foreground);
+  --color-muted: var(--muted-foreground);
+  --color-amber: var(--warning);
+  --color-red: var(--danger);
+  --color-info: var(--info);
 }
 
 :root {
   --background: #f8fafb;
+  --sidebar: #f2f5f7;
   --foreground: #0f1923;
   --card: #ffffff;
   --card-foreground: #0f1923;
+  --popover: #ffffff;
   --primary: #16a34a;
   --primary-light: #22c55e;
+  --primary-deep: #15803d;
   --primary-foreground: #ffffff;
   --secondary: #f0f4f8;
   --secondary-foreground: #374151;
@@ -29,6 +52,7 @@
   --danger: #ef4444;
   --danger-soft: #fff0f0;
   --warning: #f59e0b;
+  --info: #2563eb;
   --panel-glass: rgba(255, 255, 255, 0.94);
   --shadow-panel: 0 18px 52px rgba(15, 25, 35, 0.16);
   --shadow-card: 0 5px 16px rgba(15, 25, 35, 0.07);
@@ -40,11 +64,14 @@
 
 .dark {
   --background: #0d1117;
+  --sidebar: #111820;
   --foreground: #e8edf2;
   --card: #161b22;
   --card-foreground: #e8edf2;
+  --popover: #1b232d;
   --primary: #22c55e;
   --primary-light: #4ade80;
+  --primary-deep: #15803d;
   --primary-foreground: #0d1117;
   --secondary: #21262d;
   --secondary-foreground: #c9d1d9;
@@ -59,9 +86,69 @@
   --danger: #fb5b63;
   --danger-soft: rgba(251, 91, 99, 0.12);
   --warning: #f6a723;
+  --info: #369afe;
   --panel-glass: rgba(16, 23, 31, 0.95);
   --shadow-panel: 0 20px 60px rgba(0, 0, 0, 0.42);
   --shadow-card: 0 7px 20px rgba(0, 0, 0, 0.22);
+}
+
+/* Palette 2: Petroleum & Mint. Mode remains controlled independently by .dark. */
+:root[data-palette="tripmonitor"] {
+  --background: #dde8ec;
+  --sidebar: #f0f5f7;
+  --card: #fafcfd;
+  --card-foreground: #082631;
+  --popover: #ffffff;
+  --secondary: #eaf1f4;
+  --secondary-foreground: #123644;
+  --muted: #d5e2e7;
+  --border: #c2d3da;
+  --foreground: #082631;
+  --muted-foreground: #456473;
+  --primary: #007560;
+  --primary-light: #00a385;
+  --primary-deep: #005a49;
+  --primary-foreground: #ffffff;
+  --accent: #007560;
+  --accent-foreground: #ffffff;
+  --ring: #00a385;
+  --warning: #9a5200;
+  --danger: #c42828;
+  --info: #165fbb;
+  --success: #007560;
+  --success-soft: #e5f5ef;
+  --panel-glass: rgba(250, 252, 253, .96);
+  --shadow-panel: 0 18px 52px rgba(8, 38, 49, .16);
+  --shadow-card: 0 5px 16px rgba(8, 38, 49, .07);
+}
+
+:root.dark[data-palette="tripmonitor"] {
+  --background: #041319;
+  --sidebar: #020e12;
+  --card: #08181e;
+  --card-foreground: #e6f0f3;
+  --popover: #0d2229;
+  --secondary: #0d2229;
+  --secondary-foreground: #e6f0f3;
+  --muted: #143038;
+  --border: #153139;
+  --foreground: #e6f0f3;
+  --muted-foreground: #86a3ad;
+  --primary: #00e8b4;
+  --primary-light: #00b58c;
+  --primary-deep: #007a62;
+  --primary-foreground: #021216;
+  --accent: #00e8b4;
+  --accent-foreground: #021216;
+  --ring: #00e8b4;
+  --warning: #fab64e;
+  --danger: #fe4c4b;
+  --info: #369afe;
+  --success: #00e8b4;
+  --success-soft: rgba(0, 232, 180, .12);
+  --panel-glass: rgba(8, 24, 30, .96);
+  --shadow-panel: 0 20px 60px rgba(0, 0, 0, .42);
+  --shadow-card: 0 7px 20px rgba(0, 0, 0, .22);
 }
 
 * {
@@ -70,7 +157,6 @@
 
 html, body, #root {
   height: 100%;
-  overflow: hidden;
 }
 
 body {
@@ -88,6 +174,27 @@ body {
 
 /* Smooth transitions */
 * { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes expandCard { from { opacity: 0; transform: scaleY(.95); } to { opacity: 1; transform: scaleY(1); } }
+@keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+@keyframes signalPulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 40%, transparent); } 70% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--primary) 0%, transparent); } 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent); } }
+@keyframes slideInPanel { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pop-in { 0% { opacity: 0; transform: scale(.85); } 70% { transform: scale(1.04); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+
+.animate-fade-in-up { animation: fadeInUp .2s ease-out; }
+.animate-expand-card { animation: expandCard .2s ease-out; }
+.animate-pulse-dot { animation: pulseDot 1.6s ease-in-out infinite; }
+.animate-signal { animation: signalPulse 2s ease-out infinite; }
+.animate-slide-in { animation: slideInPanel .25s ease-out; }
+.animate-fade-up { animation: fade-up .5s cubic-bezier(.16, 1, .3, 1) both; }
+.animate-pop-in { animation: pop-in .35s cubic-bezier(.16, 1, .3, 1) both; }
+.animate-spin-slow { animation: spin-slow 16s linear infinite; }
+
+.marketing-scope, .marketing-scope * { scrollbar-width: none; }
+.marketing-scope::-webkit-scrollbar, .marketing-scope *::-webkit-scrollbar { display: none; }
 
 /* Fleet operations panel */
 .static-fleet-sidebar {

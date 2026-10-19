@@ -101,7 +101,7 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
   return (
     <section dir={isRTL ? 'rtl' : 'ltr'} aria-label={t('legend_title')} onClick={event => event.stopPropagation()} style={{
       width: 'min(370px, calc(100vw - 24px))',
-      maxHeight: 'min(76vh, 650px)',
+      maxHeight: 'min(100vh, 650px)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',

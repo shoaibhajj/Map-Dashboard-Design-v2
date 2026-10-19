@@ -1,4 +1,6 @@
-const strings = {
+import { strings as tripmonitorStrings } from './tripmonitor-strings'
+
+const mapDashboardStrings = {
   en: {
     // App
     app_name: 'FleetView', app_subtitle: 'GPS Platform',
@@ -14,6 +16,8 @@ const strings = {
     filter_all: 'All', filter_moving: 'Moving', filter_idle: 'Idle', filter_offline: 'Offline',
     n_active: 'active', n_results: 'results', n_result: 'result',
     dark_mode: 'Switch to Dark Mode', light_mode: 'Switch to Light Mode',
+    palette_label: 'Color theme', palette_current: 'FleetView Green', palette_tripmonitor: 'Petroleum & Mint',
+    nav_advertisements: 'Advertisements',
     notifications: 'Notifications', fleet_admin: 'Fleet Admin',
     filter_btn: 'Filters', language_toggle: 'عربي',
     // FABs
@@ -158,6 +162,8 @@ const strings = {
     filter_all: 'الكل', filter_moving: 'متحرك', filter_idle: 'خامل', filter_offline: 'غير متصل',
     n_active: 'نشط', n_results: 'نتائج', n_result: 'نتيجة',
     dark_mode: 'التبديل للوضع الداكن', light_mode: 'التبديل للوضع الفاتح',
+    palette_label: 'سمة الألوان', palette_current: 'الأخضر الحالي', palette_tripmonitor: 'البترولي والنعناعي',
+    nav_advertisements: 'الإعلانات',
     notifications: 'الإشعارات', fleet_admin: 'مدير الأسطول',
     filter_btn: 'الفلاتر', language_toggle: 'English',
     fab_vehicles: 'المركبات', fab_legend: 'الدليل',
@@ -282,5 +288,9 @@ const strings = {
 } as const
 
 export type Lang = 'en' | 'ar'
-export type TranslationKey = keyof typeof strings.en
-export { strings }
+export const strings = {
+  en: { ...tripmonitorStrings.en, ...mapDashboardStrings.en },
+  ar: { ...tripmonitorStrings.ar, ...mapDashboardStrings.ar },
+} as const
+
+export type TranslationKey = keyof typeof strings.en | keyof typeof tripmonitorStrings.en

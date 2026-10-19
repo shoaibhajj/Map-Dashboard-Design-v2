@@ -3,6 +3,7 @@ import { Vehicle } from '../data/vehicles'
 import { useLanguage } from '../contexts/LanguageContext'
 import LegendPanel from './LegendPanel'
 import type { MapLegendConfig } from '../utils/mapLegend'
+import PaletteSwitcher from '../shared/PaletteSwitcher'
 
 interface Props {
   darkMode: boolean
@@ -247,6 +248,7 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
 
       {/* Right controls */}
       {!hideRightControls && <div style={{ display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'all' }}>
+        <PaletteSwitcher variant="pill" />
         {/* Language toggle */}
         <button
           onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}

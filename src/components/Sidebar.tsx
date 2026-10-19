@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useNavigate } from 'react-router-dom'
 
 interface Props {
   activeRoute: string
@@ -43,11 +44,14 @@ const EXPANDED_W  = 200
 
 export default function Sidebar({ activeRoute }: Props) {
   const { t, isRTL } = useLanguage()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
   const navItems = [
+    { id: 'dashboard',     labelKey: 'nav_dashboard' as const, icon: <NavReportsIcon />, badge: null, badgeAlert: false },
     { id: 'map',           labelKey: 'nav_map' as const,      icon: <NavMapIcon />,      badge: null, badgeAlert: false },
     { id: 'vehicles',      labelKey: 'nav_vehicles' as const,  icon: <NavTruckIcon />,    badge: 6,    badgeAlert: false },
+    { id: 'advertisements',labelKey: 'nav_advertisements' as const, icon: <NavReportsIcon />, badge: null, badgeAlert: false },
     { id: 'reports',       labelKey: 'nav_reports' as const,   icon: <NavReportsIcon />,  badge: null, badgeAlert: false },
     { id: 'notifications', labelKey: 'nav_alerts' as const,    icon: <NavBellIcon />,     badge: 3,    badgeAlert: true  },
     { id: 'settings',      labelKey: 'nav_settings' as const,  icon: <NavSettingsIcon />, badge: null, badgeAlert: false },
@@ -107,6 +111,10 @@ export default function Sidebar({ activeRoute }: Props) {
           return (
             <div key={item.id} style={{ position: 'relative', padding: '2px 6px' }}>
               <button
+                onClick={() => {
+                  const paths: Record<string, string> = { dashboard: '/app/dashboard', map: '/app', vehicles: '/app/vehicles', advertisements: '/app/advertisements' }
+                  if (paths[item.id]) navigate(paths[item.id])
+                }}
                 style={{
                   width: '100%',
                   height: 40,
@@ -118,7 +126,7 @@ export default function Sidebar({ activeRoute }: Props) {
                   background: isActive ? 'color-mix(in srgb, var(--primary) 11%, transparent)' : 'transparent',
                   border: 'none',
                   borderRadius: 8,
-                  cursor: 'pointer',
+                  cursor: ['dashboard', 'map', 'vehicles', 'advertisements'].includes(item.id) ? 'pointer' : 'default',
                   color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
                   position: 'relative',
                   transition: 'background 0.15s, color 0.15s',

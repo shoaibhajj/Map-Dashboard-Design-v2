@@ -1,6 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { strings, Lang, TranslationKey } from '../i18n/strings'
 
+const STORAGE_KEY = 'fleetview-language'
+
+function initialLanguage(): Lang {
+  if (typeof window === 'undefined') return 'en'
+  return window.localStorage.getItem(STORAGE_KEY) === 'ar' ? 'ar' : 'en'
+}
+
 interface LanguageContextType {
   lang: Lang
   setLang: (l: Lang) => void
@@ -16,12 +23,13 @@ const LanguageContext = createContext<LanguageContextType>({
 })
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>('en')
+  const [lang, setLang] = useState<Lang>(initialLanguage)
   const isRTL = lang === 'ar'
 
   useEffect(() => {
     document.documentElement.dir = isRTL ? 'rtl' : 'ltr'
     document.documentElement.lang = lang
+    window.localStorage.setItem(STORAGE_KEY, lang)
   }, [lang, isRTL])
 
   const t = (key: TranslationKey) => strings[lang][key] as string
