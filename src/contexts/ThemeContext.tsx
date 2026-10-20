@@ -13,19 +13,21 @@ const MODE_KEY = 'fleetview-color-mode'
 const PALETTE_KEY = 'fleetview-palette'
 
 function initialMode(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.localStorage.getItem(MODE_KEY) === 'dark'
+  if (typeof window === 'undefined') return true
+  const savedMode = window.localStorage.getItem(MODE_KEY)
+  return savedMode === null ? true : savedMode === 'dark'
 }
 
 function initialPalette(): PaletteId {
-  if (typeof window === 'undefined') return 'current'
-  return window.localStorage.getItem(PALETTE_KEY) === 'tripmonitor' ? 'tripmonitor' : 'current'
+  if (typeof window === 'undefined') return 'tripmonitor'
+  const savedPalette = window.localStorage.getItem(PALETTE_KEY)
+  return savedPalette === null ? 'tripmonitor' : savedPalette === 'tripmonitor' ? 'tripmonitor' : 'current'
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  isDark: false,
+  isDark: true,
   toggleTheme: () => {},
-  paletteId: 'current',
+  paletteId: 'tripmonitor',
   setPaletteId: () => {},
 })
 

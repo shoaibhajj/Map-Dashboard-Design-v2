@@ -1,0 +1,11 @@
+ .gitignore                               |   6 [32m+[m
+ .vscode/settings.json                    |   3 [32m+[m
+ src/components/LegendPanel.tsx           | 333 [32m++++++++++++++++++++[m[31m-----------[m
+ src/components/ui/FuelLevelGauge.tsx     |  65 [32m++++++[m
+ src/components/ui/be-ui-range-slider.css |  14 [32m++[m
+ src/components/ui/be-ui-range-slider.tsx |  39 [32m++++[m
+ src/data/vehicles.ts                     |   2 [32m+[m
+ src/i18n/strings.ts                      |  12 [32m+[m[31m-[m
+ src/index.css                            |  40 [32m++++[m
+ src/utils/mapLegend.ts                   | 144 [32m+++++++++++[m[31m--[m
+ 10 files changed, 532 insertions(+), 126 deletions(-)
