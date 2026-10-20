@@ -62,6 +62,8 @@ export interface Vehicle {
   status: VehicleStatus
   speed: number
   fuelLevel: number
+  /** Optional absolute fuel volume supplied by the device/backend. */
+  fuelVolumeLiters?: number | null
   lastUpdate: string
   location: string
   lat: number; lng: number

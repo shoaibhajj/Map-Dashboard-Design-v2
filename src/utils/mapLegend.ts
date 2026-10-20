@@ -1,9 +1,16 @@
 import type { Vehicle, VehicleStatus } from '../data/vehicles'
 
 export type MapLegendMode = 'status' | 'metric'
+export type FuelUnit = 'percent' | 'liter'
 
 export interface MapColorRange {
   id: string
+  min: number
+  max: number
+  color: string
+}
+
+export interface EffectiveColorSegment {
   min: number
   max: number
   color: string
@@ -23,16 +30,95 @@ export interface MetricOption {
 export interface MapLegendConfig {
   mode: MapLegendMode
   metricKey: string
+  fuelUnit: FuelUnit
+  fuelTankCapacityLiters: number
+  fuelRangesByUnit: Record<FuelUnit, MapColorRange[]>
   statusColors: Record<VehicleStatus, string>
   ranges: MapColorRange[]
   noDataColor: string
 }
 
 const STORAGE_KEY = 'fleet-map-legend-settings-v1'
+export const DEFAULT_FUEL_TANK_CAPACITY_LITERS = 70
+
+const defaultFuelRanges = (unit: FuelUnit, capacity = DEFAULT_FUEL_TANK_CAPACITY_LITERS): MapColorRange[] => {
+  const scale = unit === 'percent' ? 100 : capacity
+  const suffix = unit === 'percent' ? 'percent' : 'liter'
+  return [
+    { id: `fuel-${suffix}-low`, min: 0, max: scale * 0.3, color: '#ef4444' },
+    { id: `fuel-${suffix}-medium`, min: scale * 0.3, max: scale * 0.7, color: '#f59e0b' },
+    { id: `fuel-${suffix}-high`, min: scale * 0.7, max: scale, color: '#16a34a' },
+  ]
+}
+
+export function getDefaultFuelRanges(unit: FuelUnit, capacity = DEFAULT_FUEL_TANK_CAPACITY_LITERS) {
+  return defaultFuelRanges(unit, capacity).map(range => ({ ...range }))
+}
+
+export function normalizeFuelRanges(ranges: MapColorRange[], maximum: number, step = 1) {
+  const seen = new Set<string>()
+  const upper = Math.max(step, maximum)
+  const prepared = ranges.map((range, index) => {
+    let min = Math.min(upper - step, Math.max(0, Number.isFinite(range.min) ? range.min : 0))
+    let max = Math.min(upper, Math.max(0, Number.isFinite(range.max) ? range.max : upper))
+    if (max - min < step) {
+      min = Math.max(0, max - step)
+      max = min + step
+    }
+    return { ...range, id: range.id || `fuel-range-${index}`, min, max }
+  }).sort((a, b) => a.min - b.min)
+  const normalized: MapColorRange[] = []
+
+  return prepared.flatMap(range => {
+    const previous = normalized[normalized.length - 1]
+    const min = Math.max(range.min, previous?.max ?? 0)
+    const duplicateKey = `${min}:${range.max}`
+    if (range.max - min < step || seen.has(duplicateKey)) return []
+    seen.add(duplicateKey)
+    const normalizedRange = { ...range, min }
+    normalized.push(normalizedRange)
+    return [normalizedRange]
+  })
+}
+
+function findRangeForValue(value: number, orderedRanges: MapColorRange[]) {
+  return orderedRanges.find((item, index) => Number.isFinite(item.min) && Number.isFinite(item.max) && item.min <= item.max && value >= item.min && (value < item.max || (index === orderedRanges.length - 1 && value <= item.max)))
+}
+
+export function getEffectiveColorSegments(ranges: MapColorRange[], minimum: number, maximum: number, noDataColor: string): EffectiveColorSegment[] {
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || maximum <= minimum) return []
+
+  const orderedRanges = [...ranges].filter(range => Number.isFinite(range.min) && Number.isFinite(range.max) && range.min <= range.max).sort((a, b) => a.min - b.min)
+  const boundaries = [...new Set([
+    minimum,
+    maximum,
+    ...orderedRanges.flatMap(range => [Math.max(minimum, Math.min(maximum, range.min)), Math.max(minimum, Math.min(maximum, range.max))]),
+  ])].sort((a, b) => a - b)
+  const segments: EffectiveColorSegment[] = []
+
+  for (let index = 0; index < boundaries.length - 1; index++) {
+    const min = boundaries[index]
+    const max = boundaries[index + 1]
+    if (max <= min) continue
+    const midpoint = min + (max - min) / 2
+    const color = findRangeForValue(midpoint, orderedRanges)?.color ?? noDataColor
+    const previous = segments[segments.length - 1]
+    if (previous && previous.max === min && previous.color === color) previous.max = max
+    else segments.push({ min, max, color })
+  }
+
+  return segments
+}
 
 export const DEFAULT_MAP_LEGEND: MapLegendConfig = {
   mode: 'status',
   metricKey: 'speed',
+  fuelUnit: 'percent',
+  fuelTankCapacityLiters: DEFAULT_FUEL_TANK_CAPACITY_LITERS,
+  fuelRangesByUnit: {
+    percent: defaultFuelRanges('percent'),
+    liter: defaultFuelRanges('liter'),
+  },
   statusColors: {
     moving: '#16a34a',
     idle: '#ef4444',
@@ -48,7 +134,6 @@ export const DEFAULT_MAP_LEGEND: MapLegendConfig = {
 
 export function getDefaultMetricRanges(option: MetricOption): MapColorRange[] {
   const presets: Record<string, Array<[number, number, string]>> = {
-    fuelLevel: [[0, 30, '#ef4444'], [30, 70, '#f59e0b'], [70, 100, '#16a34a']],
     batteryPercent: [[0, 20, '#ef4444'], [20, 50, '#f59e0b'], [50, 100, '#16a34a']],
     batteryVoltage: [[0, 12, '#ef4444'], [12, 12.6, '#f59e0b'], [12.6, 14.8, '#16a34a'], [14.8, 20, '#ef4444']],
     speed: [[0, 60, '#16a34a'], [60, 100, '#f59e0b'], [100, 300, '#ef4444']],
@@ -111,11 +196,41 @@ export function readMapLegendConfig(): MapLegendConfig {
     const saved = window.localStorage.getItem(STORAGE_KEY)
     if (!saved) return DEFAULT_MAP_LEGEND
     const parsed = JSON.parse(saved) as Partial<MapLegendConfig>
+    const storedCapacity = Number.isFinite(parsed.fuelTankCapacityLiters) && (parsed.fuelTankCapacityLiters ?? 0) > 0
+      ? parsed.fuelTankCapacityLiters!
+      : DEFAULT_FUEL_TANK_CAPACITY_LITERS
+    const legacyDefaultCapacity = storedCapacity === 800
+    const capacity = legacyDefaultCapacity ? DEFAULT_FUEL_TANK_CAPACITY_LITERS : storedCapacity
+    const fuelUnit = parsed.fuelUnit === 'liter' ? 'liter' : 'percent'
+    const savedFuelRanges = parsed.fuelRangesByUnit
+    const percentRanges = Array.isArray(savedFuelRanges?.percent)
+      ? savedFuelRanges.percent
+      : (parsed.metricKey === 'fuelLevel' && fuelUnit === 'percent' && Array.isArray(parsed.ranges) ? parsed.ranges : defaultFuelRanges('percent'))
+    const literRanges = Array.isArray(savedFuelRanges?.liter)
+      ? legacyDefaultCapacity
+        ? savedFuelRanges.liter.map(range => ({ ...range, min: range.min * capacity / storedCapacity, max: range.max * capacity / storedCapacity }))
+        : savedFuelRanges.liter
+      : defaultFuelRanges('liter', capacity)
+    const normalizedPercentRanges = normalizeFuelRanges(percentRanges, 100)
+    const normalizedLiterRanges = normalizeFuelRanges(literRanges, capacity)
+    const activeFuelRanges = fuelUnit === 'percent' ? normalizedPercentRanges : normalizedLiterRanges
+    const savedActiveRanges = Array.isArray(parsed.ranges) ? parsed.ranges : activeFuelRanges
+    const normalizedActiveFuelRanges = normalizeFuelRanges(
+      legacyDefaultCapacity && parsed.metricKey === 'fuelLevel' && fuelUnit === 'liter'
+        ? savedActiveRanges.map(range => ({ ...range, min: range.min * capacity / storedCapacity, max: range.max * capacity / storedCapacity }))
+        : savedActiveRanges,
+      fuelUnit === 'percent' ? 100 : capacity,
+    )
     return {
       ...DEFAULT_MAP_LEGEND,
       ...parsed,
+      fuelUnit,
+      fuelTankCapacityLiters: capacity,
+      fuelRangesByUnit: { percent: normalizedPercentRanges, liter: normalizedLiterRanges },
       statusColors: { ...DEFAULT_MAP_LEGEND.statusColors, ...parsed.statusColors },
-      ranges: Array.isArray(parsed.ranges) ? parsed.ranges : DEFAULT_MAP_LEGEND.ranges,
+      ranges: parsed.metricKey === 'fuelLevel'
+        ? normalizedActiveFuelRanges
+        : Array.isArray(parsed.ranges) ? parsed.ranges : DEFAULT_MAP_LEGEND.ranges,
     }
   } catch {
     return DEFAULT_MAP_LEGEND
@@ -130,10 +245,19 @@ export function saveMapLegendConfig(config: MapLegendConfig) {
   }
 }
 
-export function getVehicleMetric(vehicle: Vehicle, metricKey: string): number | null {
+export function getVehicleMetric(vehicle: Vehicle, metricKey: string, fuelUnit: FuelUnit = 'percent', fuelTankCapacityLiters = DEFAULT_FUEL_TANK_CAPACITY_LITERS): number | null {
   switch (metricKey) {
     case 'speed': return Number.isFinite(vehicle.speed) ? vehicle.speed : null
-    case 'fuelLevel': return Number.isFinite(vehicle.fuelLevel) ? vehicle.fuelLevel : null
+    case 'fuelLevel': {
+      if (fuelUnit === 'liter') {
+        if (typeof vehicle.fuelVolumeLiters === 'number' && Number.isFinite(vehicle.fuelVolumeLiters)) return vehicle.fuelVolumeLiters
+        return Number.isFinite(vehicle.fuelLevel) && fuelTankCapacityLiters > 0 ? vehicle.fuelLevel / 100 * fuelTankCapacityLiters : null
+      }
+      if (Number.isFinite(vehicle.fuelLevel)) return vehicle.fuelLevel
+      return typeof vehicle.fuelVolumeLiters === 'number' && Number.isFinite(vehicle.fuelVolumeLiters) && fuelTankCapacityLiters > 0
+        ? vehicle.fuelVolumeLiters / fuelTankCapacityLiters * 100
+        : null
+    }
     case 'batteryPercent': return vehicle.telemetry.batteryPercent
     case 'batteryVoltage': return vehicle.telemetry.batteryVoltage
     case 'satellites': return Number.isFinite(vehicle.telemetry.satellites) ? vehicle.telemetry.satellites : null
@@ -155,10 +279,10 @@ export function getVehicleMetric(vehicle: Vehicle, metricKey: string): number | 
 
 export function getVehicleMapColor(vehicle: Vehicle, config: MapLegendConfig): string {
   if (config.mode === 'status') return config.statusColors[vehicle.status]
-  const value = getVehicleMetric(vehicle, config.metricKey)
+  const value = getVehicleMetric(vehicle, config.metricKey, config.fuelUnit, config.fuelTankCapacityLiters)
   if (value === null) return config.noDataColor
   const ordered = [...config.ranges].sort((a, b) => a.min - b.min)
-  const range = ordered.find((item, index) => Number.isFinite(item.min) && Number.isFinite(item.max) && item.min <= item.max && value >= item.min && (value < item.max || (index === ordered.length - 1 && value <= item.max)))
+  const range = findRangeForValue(value, ordered)
   return range?.color ?? config.noDataColor
 }
 
@@ -167,19 +291,15 @@ export function getMetricOptions(vehicles: Vehicle[]) {
     { key: 'speed', label: 'Speed', unit: 'km/h', source: 'vehicle', kind: 'speed', min: 0, max: 200, step: 1 },
     { key: 'fuelLevel', label: 'Fuel level', unit: '%', source: 'vehicle', kind: 'percent', min: 0, max: 100, step: 1 },
     { key: 'odometer', label: 'Odometer', unit: 'km', source: 'vehicle', kind: 'distance', min: 0, max: 1000000, step: 1 },
-    { key: 'tripDistance', label: 'Trip distance', unit: 'km', source: 'vehicle', kind: 'distance', min: 0, max: 10000, step: 0.1 },
-    { key: 'engineHours', label: 'Engine hours', unit: 'h', source: 'vehicle', kind: 'duration', min: 0, max: 100000, step: 1 },
-    { key: 'actualWeightTons', label: 'Current weight', unit: 't', source: 'vehicle', kind: 'number', min: 0, max: 100, step: 0.1 },
     { key: 'weightLimitTons', label: 'Weight limit', unit: 't', source: 'vehicle', kind: 'number', min: 0, max: 100, step: 0.1 },
-    { key: 'batteryPercent', label: 'Tracker battery', unit: '%', source: 'gps', kind: 'percent', min: 0, max: 100, step: 1 },
-    { key: 'batteryVoltage', label: 'Battery voltage', unit: 'V', source: 'gps', kind: 'voltage', min: 0, max: 20, step: 0.1 },
-    { key: 'satellites', label: 'Satellites', unit: '', source: 'gps', kind: 'count', min: 0, max: 50, step: 1 },
+    { key: 'batteryVoltage', label: 'Battery', unit: 'V', source: 'sensor', kind: 'voltage', min: 0, max: 20, step: 0.1 },
   ]
   const sensors = new Map<string, MetricOption>()
   vehicles.forEach(vehicle => vehicle.sensors.forEach(sensor => {
     const key = sensor.key ?? `sensor:${sensor.label}`
     const sensorValue = typeof sensor.current === 'number' && Number.isFinite(sensor.current) ? sensor.current : sensor.value.trim() ? Number(sensor.value.trim()) : Number.NaN
     if (!Number.isFinite(sensorValue)) return
+    if (key !== 'refrigerator_temperature') return
     const unit = sensor.unit ?? ''
     const kind: MetricOption['kind'] = unit === '%' ? 'percent' : unit === '°C' || unit === '°F' ? 'temperature' : unit === 'V' ? 'voltage' : /km\/h/i.test(unit) ? 'speed' : /km|mi/i.test(unit) ? 'distance' : /rpm|psi/i.test(unit) ? 'number' : 'number'
     sensors.set(key, { key, label: sensor.label, unit, source: 'sensor', kind, min: sensor.min, max: sensor.max, step: kind === 'count' ? 1 : 0.1 })
