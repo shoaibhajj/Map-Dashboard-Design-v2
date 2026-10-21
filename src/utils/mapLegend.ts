@@ -8,6 +8,8 @@ export interface MapColorRange {
   min: number
   max: number
   color: string
+  /** Auto ranges use the range-count palette; custom ranges keep the user's chosen color. */
+  colorMode?: 'auto' | 'custom'
 }
 
 export interface EffectiveColorSegment {
@@ -41,13 +43,21 @@ export interface MapLegendConfig {
 const STORAGE_KEY = 'fleet-map-legend-settings-v1'
 export const DEFAULT_FUEL_TANK_CAPACITY_LITERS = 70
 
+export const FUEL_RANGE_COLOR_PALETTE = ['#ef4444', '#f97316', '#facc15', '#16a34a', '#3b82f6', '#8b5cf6', '#06b6d4', '#ec4899']
+
+export function applyAutomaticRangeColors(ranges: MapColorRange[]): MapColorRange[] {
+  return ranges.map((range, index) => range.colorMode === 'auto'
+    ? { ...range, color: FUEL_RANGE_COLOR_PALETTE[index % FUEL_RANGE_COLOR_PALETTE.length] }
+    : range)
+}
+
 const defaultFuelRanges = (unit: FuelUnit, capacity = DEFAULT_FUEL_TANK_CAPACITY_LITERS): MapColorRange[] => {
   const scale = unit === 'percent' ? 100 : capacity
   const suffix = unit === 'percent' ? 'percent' : 'liter'
   return [
-    { id: `fuel-${suffix}-low`, min: 0, max: scale * 0.3, color: '#ef4444' },
-    { id: `fuel-${suffix}-medium`, min: scale * 0.3, max: scale * 0.7, color: '#f59e0b' },
-    { id: `fuel-${suffix}-high`, min: scale * 0.7, max: scale, color: '#16a34a' },
+    { id: `fuel-${suffix}-low`, min: 0, max: scale * 0.3, color: '#ef4444', colorMode: 'auto' },
+    { id: `fuel-${suffix}-medium`, min: scale * 0.3, max: scale * 0.7, color: '#f97316', colorMode: 'auto' },
+    { id: `fuel-${suffix}-high`, min: scale * 0.7, max: scale, color: '#16a34a', colorMode: 'auto' },
   ]
 }
 
@@ -115,10 +125,7 @@ export const DEFAULT_MAP_LEGEND: MapLegendConfig = {
   metricKey: 'speed',
   fuelUnit: 'percent',
   fuelTankCapacityLiters: DEFAULT_FUEL_TANK_CAPACITY_LITERS,
-  fuelRangesByUnit: {
-    percent: defaultFuelRanges('percent'),
-    liter: defaultFuelRanges('liter'),
-  },
+  fuelRangesByUnit: { percent: [], liter: [] },
   statusColors: {
     moving: '#16a34a',
     idle: '#ef4444',
@@ -205,15 +212,27 @@ export function readMapLegendConfig(): MapLegendConfig {
     const savedFuelRanges = parsed.fuelRangesByUnit
     const percentRanges = Array.isArray(savedFuelRanges?.percent)
       ? savedFuelRanges.percent
-      : (parsed.metricKey === 'fuelLevel' && fuelUnit === 'percent' && Array.isArray(parsed.ranges) ? parsed.ranges : defaultFuelRanges('percent'))
+      : (parsed.metricKey === 'fuelLevel' && fuelUnit === 'percent' && Array.isArray(parsed.ranges) ? parsed.ranges : [])
     const literRanges = Array.isArray(savedFuelRanges?.liter)
       ? legacyDefaultCapacity
         ? savedFuelRanges.liter.map(range => ({ ...range, min: range.min * capacity / storedCapacity, max: range.max * capacity / storedCapacity }))
         : savedFuelRanges.liter
-      : defaultFuelRanges('liter', capacity)
+      : []
     const normalizedPercentRanges = normalizeFuelRanges(percentRanges, 100)
     const normalizedLiterRanges = normalizeFuelRanges(literRanges, capacity)
-    const activeFuelRanges = fuelUnit === 'percent' ? normalizedPercentRanges : normalizedLiterRanges
+    const isLegacyDefaultSet = (ranges: MapColorRange[], unit: FuelUnit) => {
+      const defaults = defaultFuelRanges(unit, capacity)
+      return ranges.length === defaults.length && ranges.every((range, index) => {
+        const expected = defaults[index]
+        const expectedColor = expected.color.toLowerCase()
+        const legacyColor = index === 1 && defaults.length === 3 ? '#f59e0b' : expectedColor
+        return range.id === expected.id && range.min === expected.min && range.max === expected.max &&
+          [expectedColor, legacyColor].includes(range.color.toLowerCase())
+      })
+    }
+    const initialPercentRanges = isLegacyDefaultSet(normalizedPercentRanges, 'percent') ? [] : normalizedPercentRanges
+    const initialLiterRanges = isLegacyDefaultSet(normalizedLiterRanges, 'liter') ? [] : normalizedLiterRanges
+    const activeFuelRanges = fuelUnit === 'percent' ? initialPercentRanges : initialLiterRanges
     const savedActiveRanges = Array.isArray(parsed.ranges) ? parsed.ranges : activeFuelRanges
     const normalizedActiveFuelRanges = normalizeFuelRanges(
       legacyDefaultCapacity && parsed.metricKey === 'fuelLevel' && fuelUnit === 'liter'
@@ -221,15 +240,17 @@ export function readMapLegendConfig(): MapLegendConfig {
         : savedActiveRanges,
       fuelUnit === 'percent' ? 100 : capacity,
     )
+    const initialActiveFuelRanges = parsed.metricKey === 'fuelLevel' && activeFuelRanges.length === 0 &&
+      isLegacyDefaultSet(normalizedActiveFuelRanges, fuelUnit) ? [] : normalizedActiveFuelRanges
     return {
       ...DEFAULT_MAP_LEGEND,
       ...parsed,
       fuelUnit,
       fuelTankCapacityLiters: capacity,
-      fuelRangesByUnit: { percent: normalizedPercentRanges, liter: normalizedLiterRanges },
+      fuelRangesByUnit: { percent: initialPercentRanges, liter: initialLiterRanges },
       statusColors: { ...DEFAULT_MAP_LEGEND.statusColors, ...parsed.statusColors },
       ranges: parsed.metricKey === 'fuelLevel'
-        ? normalizedActiveFuelRanges
+        ? initialActiveFuelRanges
         : Array.isArray(parsed.ranges) ? parsed.ranges : DEFAULT_MAP_LEGEND.ranges,
     }
   } catch {
