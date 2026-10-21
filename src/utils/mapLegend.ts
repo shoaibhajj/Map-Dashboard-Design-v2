@@ -27,6 +27,27 @@ export interface MetricOption {
   min?: number
   max?: number
   step: number
+  displayStyle?: 'gauge' | 'bar'
+  sourceKey?: string
+}
+
+export interface CustomSensorDefinition {
+  id: string
+  name: string
+  sourceKey: string
+  unit: string
+  min?: number
+  max?: number
+  displayStyle: 'gauge' | 'bar'
+}
+
+export interface CustomSensorBinding {
+  key: string
+  label: string
+  source: 'vehicle' | 'gps' | 'sensor'
+  unit: string
+  min?: number
+  max?: number
 }
 
 export interface MapLegendConfig {
@@ -41,6 +62,7 @@ export interface MapLegendConfig {
   metricScaleMaxByKey: Record<string, number>
   /** Editable lower end of metrics whose operating range can extend below zero. */
   metricScaleMinByKey: Record<string, number>
+  customSensors: CustomSensorDefinition[]
   statusColors: Record<VehicleStatus, string>
   ranges: MapColorRange[]
   noDataColor: string
@@ -142,6 +164,7 @@ export const DEFAULT_MAP_LEGEND: MapLegendConfig = {
   metricRangesByKey: {},
   metricScaleMaxByKey: {},
   metricScaleMinByKey: {},
+  customSensors: [],
   statusColors: {
     moving: '#16a34a',
     idle: '#ef4444',
@@ -311,11 +334,18 @@ export function readMapLegendConfig(): MapLegendConfig {
       activeMetricRanges = []
     }
     const metricScaleMaxByKey = parsed.metricScaleMaxByKey && typeof parsed.metricScaleMaxByKey === 'object'
-      ? Object.fromEntries(Object.entries(parsed.metricScaleMaxByKey).filter(([, value]) => Number.isFinite(value) && value > 0)) as Record<string, number>
+      ? Object.fromEntries(Object.entries(parsed.metricScaleMaxByKey).filter(([key, value]) => Number.isFinite(value) && (key.startsWith('custom:') || value > 0))) as Record<string, number>
       : {}
     const metricScaleMinByKey = parsed.metricScaleMinByKey && typeof parsed.metricScaleMinByKey === 'object'
       ? Object.fromEntries(Object.entries(parsed.metricScaleMinByKey).filter(([, value]) => Number.isFinite(value))) as Record<string, number>
       : {}
+    const customSensors = Array.isArray(parsed.customSensors)
+      ? parsed.customSensors.filter((item): item is CustomSensorDefinition => Boolean(
+          item && typeof item.id === 'string' && typeof item.name === 'string' && typeof item.sourceKey === 'string' &&
+          typeof item.unit === 'string' && (item.displayStyle === 'gauge' || item.displayStyle === 'bar') &&
+          (item.min === undefined || Number.isFinite(item.min)) && (item.max === undefined || Number.isFinite(item.max)),
+        ))
+      : []
     if (parsed.metricKey && parsed.metricKey !== 'fuelLevel' && !metricRangesByKey[parsed.metricKey]) {
       metricRangesByKey[parsed.metricKey] = activeMetricRanges ?? []
     }
@@ -328,6 +358,7 @@ export function readMapLegendConfig(): MapLegendConfig {
       metricRangesByKey,
       metricScaleMaxByKey,
       metricScaleMinByKey,
+      customSensors,
       statusColors: { ...DEFAULT_MAP_LEGEND.statusColors, ...parsed.statusColors },
       ranges: parsed.metricKey === 'fuelLevel'
         ? initialActiveFuelRanges
@@ -346,7 +377,38 @@ export function saveMapLegendConfig(config: MapLegendConfig) {
   }
 }
 
-export function getVehicleMetric(vehicle: Vehicle, metricKey: string, fuelUnit: FuelUnit = 'percent', fuelTankCapacityLiters = DEFAULT_FUEL_TANK_CAPACITY_LITERS): number | null {
+function numericSensorValue(vehicle: Vehicle, sourceKey: string) {
+  const sensorKey = sourceKey.slice('sensor:'.length)
+  const reading = vehicle.sensors.find(sensor => (sensor.key ?? sensor.label) === sensorKey)
+  if (!reading) return null
+  if (typeof reading.current === 'number' && Number.isFinite(reading.current)) return reading.current
+  if (!reading.value.trim()) return null
+  const parsed = Number(reading.value.trim().replace(/,/g, ''))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function customSensorSourceValue(vehicle: Vehicle, sourceKey: string) {
+  if (sourceKey.startsWith('sensor:')) return numericSensorValue(vehicle, sourceKey)
+  if (sourceKey.startsWith('telemetry:')) {
+    const value = vehicle.telemetry[sourceKey.slice('telemetry:'.length) as keyof Vehicle['telemetry']]
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
+  }
+  switch (sourceKey) {
+    case 'speed': return Number.isFinite(vehicle.speed) ? vehicle.speed : null
+    case 'fuelLevel': return Number.isFinite(vehicle.fuelLevel) ? vehicle.fuelLevel : null
+    case 'fuelVolumeLiters': return typeof vehicle.fuelVolumeLiters === 'number' && Number.isFinite(vehicle.fuelVolumeLiters) ? vehicle.fuelVolumeLiters : null
+    case 'odometer': return Number.isFinite(vehicle.odometer) ? vehicle.odometer : null
+    case 'tripDistance': return Number.isFinite(vehicle.tripDistance) ? vehicle.tripDistance : null
+    case 'engineHours': return Number.isFinite(vehicle.engineHours) ? vehicle.engineHours : null
+    default: return null
+  }
+}
+
+export function getVehicleMetric(vehicle: Vehicle, metricKey: string, fuelUnit: FuelUnit = 'percent', fuelTankCapacityLiters = DEFAULT_FUEL_TANK_CAPACITY_LITERS, customSensors: CustomSensorDefinition[] = []): number | null {
+  if (metricKey.startsWith('custom:')) {
+    const sensor = customSensors.find(item => `custom:${item.id}` === metricKey)
+    return sensor ? customSensorSourceValue(vehicle, sensor.sourceKey) : null
+  }
   switch (metricKey) {
     case 'speed': return Number.isFinite(vehicle.speed) ? vehicle.speed : null
     case 'fuelLevel': {
@@ -368,11 +430,11 @@ export function getVehicleMetric(vehicle: Vehicle, metricKey: string, fuelUnit: 
     case 'actualWeightTons': return vehicle.telemetry.actualWeightTons
     case 'weightLimitTons': return vehicle.telemetry.weightLimitTons
     default: {
-      const reading = vehicle.sensors.find(sensor => (sensor.key ?? `sensor:${sensor.label}`) === metricKey)
+      const reading = vehicle.sensors.find(sensor => (sensor.key ?? sensor.label) === metricKey)
       if (!reading) return null
       if (typeof reading.current === 'number' && Number.isFinite(reading.current)) return reading.current
       if (!reading.value.trim()) return null
-      const parsed = Number(reading.value)
+      const parsed = Number(reading.value.trim().replace(/,/g, ''))
       return Number.isFinite(parsed) ? parsed : null
     }
   }
@@ -380,14 +442,45 @@ export function getVehicleMetric(vehicle: Vehicle, metricKey: string, fuelUnit: 
 
 export function getVehicleMapColor(vehicle: Vehicle, config: MapLegendConfig): string {
   if (config.mode === 'status') return config.statusColors[vehicle.status]
-  const value = getVehicleMetric(vehicle, config.metricKey, config.fuelUnit, config.fuelTankCapacityLiters)
+  const value = getVehicleMetric(vehicle, config.metricKey, config.fuelUnit, config.fuelTankCapacityLiters, config.customSensors)
   if (value === null) return config.noDataColor
   const ordered = [...config.ranges].sort((a, b) => a.min - b.min)
   const range = findRangeForValue(value, ordered)
   return range?.color ?? config.noDataColor
 }
 
-export function getMetricOptions(vehicles: Vehicle[]) {
+export function getCustomSensorBindings(vehicles: Vehicle[]): CustomSensorBinding[] {
+  const fieldBindings: Array<CustomSensorBinding & { getValue: (vehicle: Vehicle) => number | null }> = [
+    { key: 'speed', label: 'Speed', source: 'vehicle', unit: 'km/h', min: 0, max: 200, getValue: vehicle => vehicle.speed },
+    { key: 'fuelLevel', label: 'Fuel level', source: 'vehicle', unit: '%', min: 0, max: 100, getValue: vehicle => vehicle.fuelLevel },
+    { key: 'fuelVolumeLiters', label: 'Fuel volume', source: 'vehicle', unit: 'L', min: 0, getValue: vehicle => vehicle.fuelVolumeLiters ?? null },
+    { key: 'odometer', label: 'Odometer', source: 'vehicle', unit: 'km', min: 0, getValue: vehicle => vehicle.odometer },
+    { key: 'tripDistance', label: 'Trip distance', source: 'vehicle', unit: 'km', min: 0, getValue: vehicle => vehicle.tripDistance },
+    { key: 'engineHours', label: 'Engine hours', source: 'vehicle', unit: 'h', min: 0, getValue: vehicle => vehicle.engineHours },
+    { key: 'telemetry:batteryPercent', label: 'Tracker battery', source: 'gps', unit: '%', min: 0, max: 100, getValue: vehicle => vehicle.telemetry.batteryPercent },
+    { key: 'telemetry:batteryVoltage', label: 'Battery voltage', source: 'gps', unit: 'V', min: 0, max: 20, getValue: vehicle => vehicle.telemetry.batteryVoltage },
+    { key: 'telemetry:satellites', label: 'Satellites', source: 'gps', unit: '', min: 0, getValue: vehicle => vehicle.telemetry.satellites },
+    { key: 'telemetry:actualWeightTons', label: 'Actual weight', source: 'gps', unit: 't', min: 0, getValue: vehicle => vehicle.telemetry.actualWeightTons },
+    { key: 'telemetry:weightLimitTons', label: 'Weight limit', source: 'gps', unit: 't', min: 0, getValue: vehicle => vehicle.telemetry.weightLimitTons },
+  ]
+  const available = fieldBindings.filter(binding => vehicles.some(vehicle => {
+    const value = binding.getValue(vehicle)
+    return typeof value === 'number' && Number.isFinite(value)
+  })).map(({ getValue: _getValue, ...binding }) => binding)
+  const sensors = new Map<string, CustomSensorBinding>()
+  vehicles.forEach(vehicle => vehicle.sensors.forEach(sensor => {
+    if (typeof sensor.current !== 'number' && !sensor.value.trim()) return
+    const sensorValue = typeof sensor.current === 'number' && Number.isFinite(sensor.current)
+      ? sensor.current
+      : Number(sensor.value.trim().replace(/,/g, ''))
+    if (!Number.isFinite(sensorValue)) return
+    const key = `sensor:${sensor.key ?? sensor.label}`
+    sensors.set(key, { key, label: sensor.label, source: 'sensor', unit: sensor.unit ?? '', min: sensor.min, max: sensor.max })
+  }))
+  return [...available, ...sensors.values()]
+}
+
+export function getMetricOptions(vehicles: Vehicle[], customSensors: CustomSensorDefinition[] = []) {
   const odometerReadings = vehicles.map(vehicle => vehicle.odometer).filter(Number.isFinite)
   const highestOdometer = odometerReadings.length ? Math.max(...odometerReadings) : 100000
   const odometerMaximum = Math.max(50000, Math.ceil(highestOdometer / 50000) * 50000)
@@ -411,5 +504,20 @@ export function getMetricOptions(vehicles: Vehicle[]) {
     const kind: MetricOption['kind'] = unit === '%' ? 'percent' : unit === '°C' || unit === '°F' ? 'temperature' : unit === 'V' ? 'voltage' : /km\/h/i.test(unit) ? 'speed' : /km|mi/i.test(unit) ? 'distance' : /rpm|psi/i.test(unit) ? 'number' : 'number'
     sensors.set(key, { key, label: sensor.label, unit, source: 'sensor', kind, min: sensor.min, max: sensor.max, step: kind === 'temperature' || kind === 'voltage' ? 0.1 : 1 })
   }))
-  return [...options, ...sensors.values()]
+  const customOptions: MetricOption[] = customSensors.map(sensor => {
+    const binding = getCustomSensorBindings(vehicles).find(item => item.key === sensor.sourceKey)
+    return {
+      key: `custom:${sensor.id}`,
+      label: sensor.name,
+      unit: sensor.unit,
+      source: 'sensor',
+      kind: 'number',
+      min: sensor.min ?? binding?.min ?? 0,
+      max: sensor.max ?? binding?.max ?? 100,
+      step: /(?:°C|°F|V)$/i.test(sensor.unit) ? 0.1 : 1,
+      displayStyle: sensor.displayStyle,
+      sourceKey: sensor.sourceKey,
+    }
+  })
+  return [...options, ...sensors.values(), ...customOptions]
 }

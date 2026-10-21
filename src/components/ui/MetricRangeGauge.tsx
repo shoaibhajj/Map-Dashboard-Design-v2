@@ -26,7 +26,7 @@ function clampRatio(value: number, minimum: number, maximum: number) {
 }
 
 function pointAt(value: number, metric: MetricOption, minimum: number, maximum: number) {
-  if (metric.kind === 'speed') {
+  if (metric.kind === 'speed' || metric.displayStyle === 'gauge') {
     const angle = 135 + clampRatio(value, minimum, maximum) * 270
     const radians = angle * Math.PI / 180
     return { x: VIEW.centerX + VIEW.radius * Math.cos(radians), y: VIEW.centerY + VIEW.radius * Math.sin(radians), angle }
@@ -47,7 +47,7 @@ function valueAtPointer(svg: SVGSVGElement, clientX: number, clientY: number, me
   const x = (clientX - rect.left) / rect.width * VIEW.width
   const y = (clientY - rect.top) / rect.height * VIEW.height
   let ratio: number
-  if (metric.kind === 'speed') {
+  if (metric.kind === 'speed' || metric.displayStyle === 'gauge') {
     const angle = Math.atan2(y - VIEW.centerY, x - VIEW.centerX) * 180 / Math.PI
     ratio = Math.max(0, Math.min(1, ((angle - 135 + 360) % 360) / 270))
   } else if (metric.key === 'refrigerator_temperature') {
@@ -89,6 +89,9 @@ export default function MetricRangeGauge({ metric, minimum, maximum, ranges, noD
   const shownEnd = boundaryPreview?.max ?? previewRange?.max ?? hoverValue ?? minimum
   const segments = ranges.length ? getEffectiveColorSegments(ranges, minimum, maximum, noDataColor) : []
   const isSpeed = metric.kind === 'speed'
+  const isCustomGauge = metric.key.startsWith('custom:') && metric.displayStyle === 'gauge'
+  const isCustomBar = metric.key.startsWith('custom:') && metric.displayStyle === 'bar'
+  const isRadialGauge = isSpeed || isCustomGauge
   const isTemperature = metric.key === 'refrigerator_temperature'
   const isBattery = metric.kind === 'voltage'
   const isWeight = metric.key === 'weightLimitTons'
@@ -124,7 +127,7 @@ export default function MetricRangeGauge({ metric, minimum, maximum, ranges, noD
     const start = pointAt(segment.min, metric, minimum, maximum)
     const end = pointAt(segment.max, metric, minimum, maximum)
     const railY = isBattery ? 137 : isWeight ? 98 : 165
-    return <line key={`${segment.min}-${segment.max}-${segment.color}`} x1={start.x} y1={railY} x2={end.x} y2={railY} stroke={segment.color} strokeWidth={isBattery ? 31 : 15} strokeLinecap="butt" opacity={isBattery ? .19 : .24} />
+    return <line key={`${segment.min}-${segment.max}-${segment.color}`} x1={start.x} y1={railY} x2={end.x} y2={railY} stroke={segment.color} strokeWidth={isCustomBar ? 15 : isBattery ? 31 : 15} strokeLinecap="butt" opacity={isCustomBar ? 1 : isBattery ? .19 : .24} />
   })
 
   const renderRangeCells = () => points.map((value, index) => {
@@ -133,8 +136,9 @@ export default function MetricRangeGauge({ metric, minimum, maximum, ranges, noD
     const isCandidate = boundaryPreview !== null && value >= boundaryPreview.min && value <= boundaryPreview.max
     const filled = hoverValue === null ? ranges.length > 0 : value <= hoverValue || isCandidate
     const color = isCandidate ? boundaryPreview.color : filled ? segment?.color ?? (ranges.length === 0 ? FUEL_RANGE_COLOR_PALETTE[0] : noDataColor) : 'var(--muted)'
-    if (isSpeed) return <rect key={index} x={point.x - 2.5} y={point.y - 4} width="5" height="8" rx="2" fill={color} opacity={filled ? 1 : .58} transform={`rotate(${point.angle + 90} ${point.x} ${point.y})`} />
+    if (isRadialGauge) return <rect key={index} x={point.x - 2.5} y={point.y - 4} width="5" height="8" rx="2" fill={color} opacity={filled ? 1 : .58} transform={`rotate(${point.angle + 90} ${point.x} ${point.y})`} />
     if (isTemperature) return null
+    if (isCustomBar) return null
     const width = isBattery ? 12 : 3.1
     const gap = isBattery ? 3.8 : 0.4
     return <rect key={index} x={point.x - width / 2} y={point.y - (isBattery ? 12 : 3.5)} width={width - gap} height={isBattery ? 24 : 7} rx={isBattery ? 2 : 1.5} fill={color} opacity={filled ? 1 : .58} />
@@ -185,7 +189,7 @@ export default function MetricRangeGauge({ metric, minimum, maximum, ranges, noD
         <circle cx="220" cy={point.y} r="12" fill="transparent" />
       </g>
     }
-    if (isSpeed) {
+    if (isRadialGauge) {
       const inner = { x: VIEW.centerX + (point.x - VIEW.centerX) * .91, y: VIEW.centerY + (point.y - VIEW.centerY) * .91 }
       const outer = { x: VIEW.centerX + (point.x - VIEW.centerX) * 1.14, y: VIEW.centerY + (point.y - VIEW.centerY) * 1.14 }
       const label = { x: VIEW.centerX + (point.x - VIEW.centerX) * 1.32, y: VIEW.centerY + (point.y - VIEW.centerY) * 1.32 }
@@ -239,9 +243,23 @@ export default function MetricRangeGauge({ metric, minimum, maximum, ranges, noD
     >
       <title>{editHint}</title>
 
-      {isSpeed && <>
+      {isRadialGauge && <>
         <path d={`M ${pointAt(minimum, metric, minimum, maximum).x} ${pointAt(minimum, metric, minimum, maximum).y} A ${VIEW.radius} ${VIEW.radius} 0 1 1 ${pointAt(maximum, metric, minimum, maximum).x} ${pointAt(maximum, metric, minimum, maximum).y}`} fill="none" stroke="var(--muted)" strokeWidth="11" strokeLinecap="round" />
         {speedSegments}
+      </>}
+
+      {isCustomBar && <>
+        <line x1="66" y1="165" x2="294" y2="165" stroke="var(--muted)" strokeWidth="15" strokeLinecap="round" />
+        {renderLinearTicks()}
+        {hoverValue !== null && boundaryPreview && boundaryPreview.kind !== 'existing' && <line
+          x1={pointAt(boundaryPreview.min, metric, minimum, maximum).x}
+          y1="165"
+          x2={pointAt(boundaryPreview.max, metric, minimum, maximum).x}
+          y2="165"
+          stroke={boundaryPreview.color}
+          strokeWidth="15"
+          strokeLinecap="butt"
+        />}
       </>}
 
       {metric.key === 'odometer' && <g className="metric-odometer-window">
@@ -276,12 +294,12 @@ export default function MetricRangeGauge({ metric, minimum, maximum, ranges, noD
         <path d={TEMPERATURE_TUBE_PATH} className="metric-temperature-tube-outline" />
       </>}
 
-      {!isTemperature && !isSpeed && renderLinearTicks()}
-      {!isTemperature && renderRangeCells()}
+      {!isTemperature && !isSpeed && !isCustomGauge && !isCustomBar && renderLinearTicks()}
+      {!isTemperature && !isCustomBar && renderRangeCells()}
 
       {isBattery && <path d="M67 137h8" stroke="var(--muted-foreground)" strokeWidth="1.5" />}
 
-      {!isSpeed && !isTemperature && <>
+      {!isRadialGauge && !isTemperature && <>
         <text x={minimumPoint.x} y={isBattery ? 190 : isWeight ? 178 : 202} textAnchor="middle" className="metric-gauge-endpoint">{formatted(minimum, metric.step)}</text>
         <text x={maximumPoint.x} y={isBattery ? 190 : isWeight ? 178 : 202} textAnchor="middle" className="metric-gauge-endpoint">{formatted(maximum, metric.step)}</text>
       </>}
@@ -289,15 +307,15 @@ export default function MetricRangeGauge({ metric, minimum, maximum, ranges, noD
         <text x="146" y="59" textAnchor="end" className="metric-gauge-endpoint">{formatted(maximum, metric.step)}</text>
         <text x="146" y="216" textAnchor="end" className="metric-gauge-endpoint">{formatted(minimum, metric.step)}</text>
       </>}
-      {isSpeed && <>
+      {isRadialGauge && <>
         <text x={minimumPoint.x - 3} y={minimumPoint.y + 22} textAnchor="end" className="metric-gauge-endpoint">{formatted(minimum, metric.step)}</text>
         <text x={maximumPoint.x + 3} y={maximumPoint.y + 22} textAnchor="start" className="metric-gauge-endpoint">{formatted(maximum, metric.step)}</text>
       </>}
 
       {boundaries.map(renderBoundary)}
 
-      {readingPoint && isSpeed && <path d={`M ${VIEW.centerX} ${VIEW.centerY} L ${readingPoint.x} ${readingPoint.y}`} stroke={previewColor} strokeWidth="3.5" strokeLinecap="round" />}
-      {readingPoint && isSpeed && <circle cx={VIEW.centerX} cy={VIEW.centerY} r="6" fill={previewColor} />}
+      {readingPoint && isRadialGauge && <path d={`M ${VIEW.centerX} ${VIEW.centerY} L ${readingPoint.x} ${readingPoint.y}`} stroke={previewColor} strokeWidth="3.5" strokeLinecap="round" />}
+      {readingPoint && isRadialGauge && <circle cx={VIEW.centerX} cy={VIEW.centerY} r="6" fill={previewColor} />}
       {readingPoint && metric.key === 'odometer' && <line x1={readingPoint.x} y1="155" x2={readingPoint.x} y2="177" stroke={previewColor} strokeWidth="3" strokeLinecap="round" />}
     </svg>
 

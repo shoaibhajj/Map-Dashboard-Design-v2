@@ -4,9 +4,11 @@ import { ColorPickerField } from './ColorPicker'
 import FuelLevelGauge from './ui/FuelLevelGauge'
 import MetricRangeGauge from './ui/MetricRangeGauge'
 import { RangeSlider } from './ui/be-ui-range-slider'
+import CustomSensorModal from './CustomSensorModal'
 import type { Vehicle, VehicleStatus } from '../data/vehicles'
 import {
   getMetricOptions,
+  getCustomSensorBindings,
   getVehicleMetric,
   getDefaultMetricRanges,
   getDefaultFuelRanges,
@@ -19,6 +21,7 @@ import {
   type MapColorRange,
   type MapLegendConfig,
   type FuelUnit,
+  type CustomSensorDefinition,
 } from '../utils/mapLegend'
 
 interface Props {
@@ -29,6 +32,7 @@ interface Props {
 }
 
 const STATUS_KEYS: VehicleStatus[] = ['moving', 'idle', 'offline']
+const CUSTOM_SENSOR_ACTION = '__create_custom_sensor__'
 
 function EditableBoundary({ value, suffix, label, limits, step, onCommit }: {
   value: number
@@ -66,12 +70,14 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
   const { t, isRTL } = useLanguage()
   const [rangeEditorOpen, setRangeEditorOpen] = useState(false)
   const [rangeEditorPlacement, setRangeEditorPlacement] = useState<'left' | 'right' | 'below'>('left')
+  const [customSensorModalOpen, setCustomSensorModalOpen] = useState(false)
   const layoutRef = useRef<HTMLDivElement>(null)
   const [capacityDraft, setCapacityDraft] = useState(String(config.fuelTankCapacityLiters))
   const [metricScaleMaxDraft, setMetricScaleMaxDraft] = useState('')
   const [metricScaleMinDraft, setMetricScaleMinDraft] = useState('')
   useEffect(() => setCapacityDraft(String(config.fuelTankCapacityLiters)), [config.fuelTankCapacityLiters])
-  const options = getMetricOptions(vehicles)
+  const options = getMetricOptions(vehicles, config.customSensors)
+  const customSensorBindings = getCustomSensorBindings(vehicles)
   const activeMetric = options.find(option => option.key === config.metricKey) ?? options[0]
   const isFuel = config.metricKey === 'fuelLevel'
   const showRangeEditor = config.mode === 'metric' && rangeEditorOpen
@@ -329,6 +335,22 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
       metricScaleMinByKey: { ...config.metricScaleMinByKey, [config.metricKey]: nextMinimum },
     })
   }
+  const addCustomSensor = (sensor: CustomSensorDefinition) => {
+    const key = `custom:${sensor.id}`
+    const nextRanges = config.metricRangesByKey[key] ?? []
+    onChange({
+      ...config,
+      mode: 'metric',
+      metricKey: key,
+      customSensors: [...config.customSensors, sensor],
+      ranges: nextRanges,
+      metricRangesByKey: { ...config.metricRangesByKey, [key]: nextRanges },
+      ...(sensor.min === undefined ? {} : { metricScaleMinByKey: { ...config.metricScaleMinByKey, [key]: sensor.min } }),
+      ...(sensor.max === undefined ? {} : { metricScaleMaxByKey: { ...config.metricScaleMaxByKey, [key]: sensor.max } }),
+    })
+    setRangeEditorOpen(false)
+    setCustomSensorModalOpen(false)
+  }
 
   const orderedRanges = useMemo(() => [...currentRanges].sort((a, b) => a.min - b.min), [currentRanges])
   const canAddRange = !isFuel || currentRanges.length === 0 || currentRanges.some(range => range.max - range.min >= 2)
@@ -339,12 +361,12 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
   const demoCounts = orderedRanges.map((range, index) => ({
     range,
     count: vehicles.filter(vehicle => {
-      const value = getVehicleMetric(vehicle, config.metricKey, config.fuelUnit, config.fuelTankCapacityLiters)
+      const value = getVehicleMetric(vehicle, config.metricKey, config.fuelUnit, config.fuelTankCapacityLiters, config.customSensors)
       return value !== null && isInRange(value, index)
     }).length,
   }))
   const noDataCount = vehicles.filter(vehicle => {
-    const value = getVehicleMetric(vehicle, config.metricKey, config.fuelUnit, config.fuelTankCapacityLiters)
+    const value = getVehicleMetric(vehicle, config.metricKey, config.fuelUnit, config.fuelTankCapacityLiters, config.customSensors)
     return value === null || !orderedRanges.some((range, index) => isInRange(value, index))
   }).length
   useLayoutEffect(() => {
@@ -446,7 +468,12 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
           <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700 }}>
             {t('map_sensor_or_value')}
             <select value={config.metricKey} onChange={event => {
+              if (event.target.value === CUSTOM_SENSOR_ACTION) {
+                setCustomSensorModalOpen(true)
+                return
+              }
               const next = options.find(option => option.key === event.target.value) ?? options[0]
+              if (!next) return
               const nextRanges = next.key === 'fuelLevel'
                 ? config.fuelRangesByUnit[config.fuelUnit]
                 : config.metricRangesByKey[next.key] ?? []
@@ -463,8 +490,12 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
               setRangeEditorOpen(false)
             }} style={inputStyle}>
               {(['vehicle', 'gps', 'sensor'] as const).map(source => <optgroup key={source} label={t(`map_source_${source}`)}>
-                {options.filter(option => option.source === source).map(option => <option key={option.key} value={option.key}>{metricLabel(option.key, option.label)}{option.unit ? ` (${option.key === 'fuelLevel' ? unitText(config.fuelUnit) : option.unit})` : ''}</option>)}
+                {options.filter(option => option.source === source && !option.key.startsWith('custom:')).map(option => <option key={option.key} value={option.key}>{metricLabel(option.key, option.label)}{option.unit ? ` (${option.key === 'fuelLevel' ? unitText(config.fuelUnit) : option.unit})` : ''}</option>)}
               </optgroup>)}
+              <optgroup label={t('map_custom_sensor_group')}>
+                {options.filter(option => option.key.startsWith('custom:')).map(option => <option key={option.key} value={option.key}>{option.label}{option.unit ? ` (${option.unit})` : ''}</option>)}
+                <option value={CUSTOM_SENSOR_ACTION}>+ {t('map_custom_sensor_add')}</option>
+              </optgroup>
             </select>
           </label>
 
@@ -545,7 +576,7 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 9 }}>
           <span style={{ color: 'var(--muted-foreground)', fontSize: 9.5 }}>{t('map_saved_in_browser')}</span>
-          <button type="button" onClick={() => { setRangeEditorOpen(false); onChange({ ...DEFAULT_MAP_LEGEND, statusColors: { ...DEFAULT_MAP_LEGEND.statusColors }, fuelRangesByUnit: { percent: [], liter: [] }, metricRangesByKey: {}, metricScaleMaxByKey: {}, metricScaleMinByKey: {} }) }} style={smallButton}>{t('map_reset_settings')}</button>
+          <button type="button" onClick={() => { setRangeEditorOpen(false); onChange({ ...DEFAULT_MAP_LEGEND, statusColors: { ...DEFAULT_MAP_LEGEND.statusColors }, fuelRangesByUnit: { percent: [], liter: [] }, metricRangesByKey: {}, metricScaleMaxByKey: {}, metricScaleMinByKey: {}, customSensors: [] }) }} style={smallButton}>{t('map_reset_settings')}</button>
         </div>
       </div>
     </section>
@@ -553,6 +584,7 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
       {rangeEditor}
       <p className="fuel-ranges-hint">{t('map_sensor_hint')}</p>
     </aside>}
+    {customSensorModalOpen && <CustomSensorModal bindings={customSensorBindings} onClose={() => setCustomSensorModalOpen(false)} onAdd={addCustomSensor} />}
     </div>
   )
 }
