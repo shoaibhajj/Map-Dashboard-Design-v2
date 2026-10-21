@@ -787,6 +787,34 @@ html[dir="rtl"] .floating-vehicle-stack { right: auto; left: 10px; }
 .fuel-gauge-reading small { margin-inline-start: 4px; font-size: 13px; font-weight: 700; }
 .fuel-gauge-footnote { margin-top: 4px; color: var(--muted-foreground); font-size: 9.5px; }
 .fuel-gauge-edit-hint { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 4px 8px; border-radius: 99px; background: color-mix(in srgb, var(--primary) 10%, var(--card)); color: var(--primary); font-size: 9.5px; font-weight: 700; }
+.metric-range-gauge { display: flex; width: 100%; max-width: 410px; flex-direction: column; align-items: center; gap: 2px; margin-inline: auto; padding: 12px 10px 10px; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--secondary) 42%, var(--card)); }
+.metric-range-gauge.is-expanded { border-color: color-mix(in srgb, var(--primary) 70%, var(--border)); }
+.metric-range-gauge-heading { display: flex; width: 100%; align-items: center; justify-content: space-between; color: var(--foreground); font-size: 11px; }
+.metric-range-gauge-heading span { color: var(--muted-foreground); font-size: 10px; font-weight: 700; }
+.metric-range-gauge-svg { display: block; width: min(100%, 390px); height: auto; aspect-ratio: 360 / 260; overflow: visible; outline: none; touch-action: none; user-select: none; cursor: crosshair; }
+.metric-range-gauge-svg:focus-visible { border-radius: 10px; outline: 2px solid var(--primary); outline-offset: -3px; }
+.metric-gauge-boundary { cursor: grab; touch-action: none; }
+.metric-gauge-boundary:active { cursor: grabbing; }
+.metric-gauge-boundary-label, .metric-gauge-endpoint { fill: var(--foreground); stroke: var(--card); stroke-width: 3px; paint-order: stroke; font: 800 9px system-ui, sans-serif; font-variant-numeric: tabular-nums; pointer-events: none; }
+.metric-gauge-endpoint { fill: var(--muted-foreground); font-size: 10px; font-weight: 650; }
+.metric-odometer-window rect { fill: var(--background); stroke: var(--border); stroke-width: 1.4; }
+.metric-odometer-window > path { stroke: color-mix(in srgb, var(--primary) 38%, var(--border)); stroke-width: 1; }
+.metric-odometer-window > circle { fill: var(--muted-foreground); opacity: .55; }
+.metric-odometer-digits { fill: var(--foreground); font: 700 23px var(--font-mono), monospace; font-variant-numeric: tabular-nums; letter-spacing: .06em; }
+.metric-odometer-unit { fill: var(--muted-foreground); font: 700 8px system-ui, sans-serif; }
+.metric-weight-scale { fill: none; stroke: color-mix(in srgb, var(--foreground) 76%, var(--primary)); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.metric-weight-scale circle { fill: var(--primary); stroke: var(--card); stroke-width: 2; }
+.metric-battery-shell rect { fill: var(--background); stroke: color-mix(in srgb, var(--foreground) 75%, var(--border)); stroke-width: 3; }
+.metric-battery-shell path { fill: var(--background); stroke: color-mix(in srgb, var(--foreground) 75%, var(--border)); stroke-width: 3; stroke-linejoin: round; }
+.metric-temperature-shell rect { fill: var(--background); stroke: var(--border); stroke-width: 2; }
+.metric-temperature-shell circle { fill: var(--background); stroke: var(--border); stroke-width: 2; }
+.metric-temperature-shell path, .metric-temperature-tube-outline { fill: none; stroke: color-mix(in srgb, var(--foreground) 60%, var(--border)); stroke-width: 3; pointer-events: none; }
+.metric-gauge-reading { display: flex; min-height: 45px; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.metric-gauge-reading strong { font-size: 24px; font-weight: 850; font-variant-numeric: tabular-nums; }
+.metric-gauge-reading span { margin-top: 3px; color: var(--muted-foreground); font-size: 9px; font-weight: 650; }
+.metric-gauge-edit-button { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; padding: 5px 9px; color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--card)); border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border)); border-radius: 999px; font-size: 9.5px; font-weight: 750; cursor: pointer; }
+.metric-gauge-edit-button:hover { background: color-mix(in srgb, var(--primary) 15%, var(--card)); }
+.metric-gauge-edit-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .legend-popover-layout { position: relative; width: min(430px, calc(100vw - 24px)); overflow: visible; }
 .fuel-ranges-card { position: absolute; z-index: 121; display: grid; gap: 9px; width: min(370px, calc(100vw - 24px)); max-height: min(590px, calc(100vh - 32px)); overflow-y: auto; overscroll-behavior: contain; padding: 11px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--card) 98%, transparent); box-shadow: var(--shadow-panel, 0 14px 40px rgba(15, 23, 42, .24)); backdrop-filter: blur(20px); }
 .fuel-ranges-card.is-left { right: calc(100% + 10px); top: 0; }

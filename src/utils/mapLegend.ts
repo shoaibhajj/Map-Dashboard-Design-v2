@@ -35,6 +35,12 @@ export interface MapLegendConfig {
   fuelUnit: FuelUnit
   fuelTankCapacityLiters: number
   fuelRangesByUnit: Record<FuelUnit, MapColorRange[]>
+  /** User-edited thresholds per metric; `ranges` remains the active metric's map-color ranges. */
+  metricRangesByKey: Record<string, MapColorRange[]>
+  /** Editable upper end of each metric gauge. */
+  metricScaleMaxByKey: Record<string, number>
+  /** Editable lower end of metrics whose operating range can extend below zero. */
+  metricScaleMinByKey: Record<string, number>
   statusColors: Record<VehicleStatus, string>
   ranges: MapColorRange[]
   noDataColor: string
@@ -44,10 +50,17 @@ const STORAGE_KEY = 'fleet-map-legend-settings-v1'
 export const DEFAULT_FUEL_TANK_CAPACITY_LITERS = 70
 
 export const FUEL_RANGE_COLOR_PALETTE = ['#ef4444', '#f97316', '#facc15', '#16a34a', '#3b82f6', '#8b5cf6', '#06b6d4', '#ec4899']
+const COLD_TO_HOT_PALETTE = ['#3b82f6', '#06b6d4', '#16a34a', '#facc15', '#f97316', '#ef4444']
 
-export function applyAutomaticRangeColors(ranges: MapColorRange[]): MapColorRange[] {
+export function getMetricRangePalette(metricKey: string) {
+  return metricKey === 'weightLimitTons' || metricKey === 'refrigerator_temperature'
+    ? COLD_TO_HOT_PALETTE
+    : FUEL_RANGE_COLOR_PALETTE
+}
+
+export function applyAutomaticRangeColors(ranges: MapColorRange[], palette = FUEL_RANGE_COLOR_PALETTE): MapColorRange[] {
   return ranges.map((range, index) => range.colorMode === 'auto'
-    ? { ...range, color: FUEL_RANGE_COLOR_PALETTE[index % FUEL_RANGE_COLOR_PALETTE.length] }
+    ? { ...range, color: palette[index % palette.length] }
     : range)
 }
 
@@ -126,16 +139,15 @@ export const DEFAULT_MAP_LEGEND: MapLegendConfig = {
   fuelUnit: 'percent',
   fuelTankCapacityLiters: DEFAULT_FUEL_TANK_CAPACITY_LITERS,
   fuelRangesByUnit: { percent: [], liter: [] },
+  metricRangesByKey: {},
+  metricScaleMaxByKey: {},
+  metricScaleMinByKey: {},
   statusColors: {
     moving: '#16a34a',
     idle: '#ef4444',
     offline: '#6b7280',
   },
-  ranges: [
-    { id: 'speed-low', min: 0, max: 60, color: '#16a34a' },
-    { id: 'speed-medium', min: 60, max: 100, color: '#f59e0b' },
-    { id: 'speed-high', min: 100, max: 300, color: '#ef4444' },
-  ],
+  ranges: [],
   noDataColor: '#94a3b8',
 }
 
@@ -143,9 +155,39 @@ export function getDefaultMetricRanges(option: MetricOption): MapColorRange[] {
   const presets: Record<string, Array<[number, number, string]>> = {
     batteryPercent: [[0, 20, '#ef4444'], [20, 50, '#f59e0b'], [50, 100, '#16a34a']],
     batteryVoltage: [[0, 12, '#ef4444'], [12, 12.6, '#f59e0b'], [12.6, 14.8, '#16a34a'], [14.8, 20, '#ef4444']],
-    speed: [[0, 60, '#16a34a'], [60, 100, '#f59e0b'], [100, 300, '#ef4444']],
+    speed: [[0, 60, '#16a34a'], [60, 100, '#f59e0b'], [100, 200, '#ef4444']],
     satellites: [[0, 4, '#ef4444'], [4, 8, '#f59e0b'], [8, 50, '#16a34a']],
     refrigerator_temperature: [[-30, -18, '#3b82f6'], [-18, -10, '#16a34a'], [-10, -5, '#f59e0b'], [-5, 10, '#ef4444']],
+  }
+  if (option.key === 'speed') {
+    const maximum = option.max ?? 200
+    return [
+      { id: 'speed-low', min: 0, max: Math.min(60, maximum), color: '#16a34a' },
+      { id: 'speed-medium', min: Math.min(60, maximum), max: Math.min(100, maximum), color: '#f59e0b' },
+      { id: 'speed-high', min: Math.min(100, maximum), max: maximum, color: '#ef4444' },
+    ].filter(range => range.max > range.min)
+  }
+  if (option.key === 'odometer') {
+    const maximum = option.max ?? 150000
+    const first = Math.round(maximum / 3)
+    const second = Math.round(maximum * 2 / 3)
+    return [
+      { id: 'odometer-low', min: 0, max: first, color: '#16a34a' },
+      { id: 'odometer-medium', min: first, max: second, color: '#f59e0b' },
+      { id: 'odometer-high', min: second, max: maximum, color: '#ef4444' },
+    ]
+  }
+  if (option.key === 'weightLimitTons') {
+    const min = option.min ?? 0
+    const max = option.max ?? 10
+    const step = (max - min) / 4
+    const palette = getMetricRangePalette(option.key)
+    return palette.slice(0, 4).map((color, index) => ({
+      id: `weight-limit-${index}`,
+      min: min + step * index,
+      max: index === 3 ? max : min + step * (index + 1),
+      color,
+    }))
   }
   const preset = presets[option.key]
   if (preset) return preset.map(([min, max, color], index) => ({ id: `${option.key}-${index}`, min, max, color }))
@@ -242,16 +284,54 @@ export function readMapLegendConfig(): MapLegendConfig {
     )
     const initialActiveFuelRanges = parsed.metricKey === 'fuelLevel' && activeFuelRanges.length === 0 &&
       isLegacyDefaultSet(normalizedActiveFuelRanges, fuelUnit) ? [] : normalizedActiveFuelRanges
+    const metricRangesByKey = parsed.metricRangesByKey && typeof parsed.metricRangesByKey === 'object'
+      ? { ...parsed.metricRangesByKey }
+      : {}
+    const isLegacySpeedDefault = (ranges: MapColorRange[]) => {
+      if (ranges.length !== 3) return false
+      const legacyPresets = [200, 300]
+      return legacyPresets.some(maximum => {
+        const expected = [
+          ['speed-low', 0, 60, '#16a34a'],
+          ['speed-medium', 60, 100, '#f59e0b'],
+          ['speed-high', 100, maximum, '#ef4444'],
+        ] as const
+        return ranges.every((range, index) => {
+          const [id, min, max, color] = expected[index]
+          return range.id === id && range.min === min && range.max === max && range.color.toLowerCase() === color
+        })
+      })
+    }
+    if (isLegacySpeedDefault(metricRangesByKey.speed ?? [])) metricRangesByKey.speed = []
+    let activeMetricRanges = parsed.metricKey !== 'fuelLevel'
+      ? (metricRangesByKey[parsed.metricKey ?? 'speed'] ?? (Array.isArray(parsed.ranges) ? parsed.ranges : []))
+      : undefined
+    if (parsed.metricKey === 'speed' && isLegacySpeedDefault(activeMetricRanges ?? [])) {
+      metricRangesByKey.speed = []
+      activeMetricRanges = []
+    }
+    const metricScaleMaxByKey = parsed.metricScaleMaxByKey && typeof parsed.metricScaleMaxByKey === 'object'
+      ? Object.fromEntries(Object.entries(parsed.metricScaleMaxByKey).filter(([, value]) => Number.isFinite(value) && value > 0)) as Record<string, number>
+      : {}
+    const metricScaleMinByKey = parsed.metricScaleMinByKey && typeof parsed.metricScaleMinByKey === 'object'
+      ? Object.fromEntries(Object.entries(parsed.metricScaleMinByKey).filter(([, value]) => Number.isFinite(value))) as Record<string, number>
+      : {}
+    if (parsed.metricKey && parsed.metricKey !== 'fuelLevel' && !metricRangesByKey[parsed.metricKey]) {
+      metricRangesByKey[parsed.metricKey] = activeMetricRanges ?? []
+    }
     return {
       ...DEFAULT_MAP_LEGEND,
       ...parsed,
       fuelUnit,
       fuelTankCapacityLiters: capacity,
       fuelRangesByUnit: { percent: initialPercentRanges, liter: initialLiterRanges },
+      metricRangesByKey,
+      metricScaleMaxByKey,
+      metricScaleMinByKey,
       statusColors: { ...DEFAULT_MAP_LEGEND.statusColors, ...parsed.statusColors },
       ranges: parsed.metricKey === 'fuelLevel'
         ? initialActiveFuelRanges
-        : Array.isArray(parsed.ranges) ? parsed.ranges : DEFAULT_MAP_LEGEND.ranges,
+        : activeMetricRanges ?? [],
     }
   } catch {
     return DEFAULT_MAP_LEGEND
@@ -308,11 +388,17 @@ export function getVehicleMapColor(vehicle: Vehicle, config: MapLegendConfig): s
 }
 
 export function getMetricOptions(vehicles: Vehicle[]) {
+  const odometerReadings = vehicles.map(vehicle => vehicle.odometer).filter(Number.isFinite)
+  const highestOdometer = odometerReadings.length ? Math.max(...odometerReadings) : 100000
+  const odometerMaximum = Math.max(50000, Math.ceil(highestOdometer / 50000) * 50000)
+  const weightLimits = vehicles.map(vehicle => vehicle.telemetry.weightLimitTons).filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  const highestWeightLimit = weightLimits.length ? Math.max(...weightLimits) : 10
+  const weightMaximum = Math.max(5, Math.ceil(highestWeightLimit / 5) * 5)
   const options: MetricOption[] = [
     { key: 'speed', label: 'Speed', unit: 'km/h', source: 'vehicle', kind: 'speed', min: 0, max: 200, step: 1 },
     { key: 'fuelLevel', label: 'Fuel level', unit: '%', source: 'vehicle', kind: 'percent', min: 0, max: 100, step: 1 },
-    { key: 'odometer', label: 'Odometer', unit: 'km', source: 'vehicle', kind: 'distance', min: 0, max: 1000000, step: 1 },
-    { key: 'weightLimitTons', label: 'Weight limit', unit: 't', source: 'vehicle', kind: 'number', min: 0, max: 100, step: 0.1 },
+    { key: 'odometer', label: 'Odometer', unit: 'km', source: 'vehicle', kind: 'distance', min: 0, max: odometerMaximum, step: 1 },
+    { key: 'weightLimitTons', label: 'Weight limit', unit: 't', source: 'vehicle', kind: 'number', min: 0, max: weightMaximum, step: 0.1 },
     { key: 'batteryVoltage', label: 'Battery', unit: 'V', source: 'sensor', kind: 'voltage', min: 0, max: 20, step: 0.1 },
   ]
   const sensors = new Map<string, MetricOption>()
@@ -323,7 +409,7 @@ export function getMetricOptions(vehicles: Vehicle[]) {
     if (key !== 'refrigerator_temperature') return
     const unit = sensor.unit ?? ''
     const kind: MetricOption['kind'] = unit === '%' ? 'percent' : unit === '°C' || unit === '°F' ? 'temperature' : unit === 'V' ? 'voltage' : /km\/h/i.test(unit) ? 'speed' : /km|mi/i.test(unit) ? 'distance' : /rpm|psi/i.test(unit) ? 'number' : 'number'
-    sensors.set(key, { key, label: sensor.label, unit, source: 'sensor', kind, min: sensor.min, max: sensor.max, step: kind === 'count' ? 1 : 0.1 })
+    sensors.set(key, { key, label: sensor.label, unit, source: 'sensor', kind, min: sensor.min, max: sensor.max, step: kind === 'temperature' || kind === 'voltage' ? 0.1 : 1 })
   }))
   return [...options, ...sensors.values()]
 }

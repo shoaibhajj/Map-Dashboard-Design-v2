@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { ColorPickerField } from './ColorPicker'
 import FuelLevelGauge from './ui/FuelLevelGauge'
+import MetricRangeGauge from './ui/MetricRangeGauge'
 import { RangeSlider } from './ui/be-ui-range-slider'
 import type { Vehicle, VehicleStatus } from '../data/vehicles'
 import {
@@ -11,6 +12,7 @@ import {
   getDefaultFuelRanges,
   applyAutomaticRangeColors,
   FUEL_RANGE_COLOR_PALETTE,
+  getMetricRangePalette,
   normalizeFuelRanges,
   DEFAULT_FUEL_TANK_CAPACITY_LITERS,
   DEFAULT_MAP_LEGEND,
@@ -62,15 +64,17 @@ function EditableBoundary({ value, suffix, label, limits, step, onCommit }: {
 
 export default function LegendPanel({ config, vehicles, onChange, onClose }: Props) {
   const { t, isRTL } = useLanguage()
-  const [fuelEditorOpen, setFuelEditorOpen] = useState(false)
-  const [fuelEditorPlacement, setFuelEditorPlacement] = useState<'left' | 'right' | 'below'>('left')
+  const [rangeEditorOpen, setRangeEditorOpen] = useState(false)
+  const [rangeEditorPlacement, setRangeEditorPlacement] = useState<'left' | 'right' | 'below'>('left')
   const layoutRef = useRef<HTMLDivElement>(null)
   const [capacityDraft, setCapacityDraft] = useState(String(config.fuelTankCapacityLiters))
+  const [metricScaleMaxDraft, setMetricScaleMaxDraft] = useState('')
+  const [metricScaleMinDraft, setMetricScaleMinDraft] = useState('')
   useEffect(() => setCapacityDraft(String(config.fuelTankCapacityLiters)), [config.fuelTankCapacityLiters])
   const options = getMetricOptions(vehicles)
   const activeMetric = options.find(option => option.key === config.metricKey) ?? options[0]
   const isFuel = config.metricKey === 'fuelLevel'
-  const showFuelEditor = config.mode === 'metric' && isFuel && fuelEditorOpen
+  const showRangeEditor = config.mode === 'metric' && rangeEditorOpen
   const metricLabel = (key: string, fallback: string) => {
     const labels: Record<string, string> = {
       speed: t('lbl_speed'), fuelLevel: t('map_metric_fuel'), batteryPercent: t('map_metric_battery_percent'),
@@ -82,7 +86,17 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
   }
   const unitText = (unit: FuelUnit) => unit === 'percent' ? '%' : t('map_liter_short')
   const activeUnit = isFuel ? unitText(config.fuelUnit) : activeMetric?.unit ?? ''
-  const scaleMax = isFuel ? (config.fuelUnit === 'percent' ? 100 : config.fuelTankCapacityLiters) : activeMetric?.max ?? 100
+  const metricSeedRanges = config.metricRangesByKey[config.metricKey] ?? config.ranges
+  const scaleMax = isFuel
+    ? (config.fuelUnit === 'percent' ? 100 : config.fuelTankCapacityLiters)
+    : config.metricScaleMaxByKey[config.metricKey] ?? Math.max(activeMetric?.max ?? 100, ...metricSeedRanges.map(range => range.max))
+  const scaleMin = isFuel
+    ? 0
+    : config.metricScaleMinByKey[config.metricKey] ?? Math.min(activeMetric?.min ?? 0, ...metricSeedRanges.map(range => range.min))
+  useEffect(() => {
+    setMetricScaleMaxDraft(String(scaleMax))
+    setMetricScaleMinDraft(String(scaleMin))
+  }, [config.metricKey, scaleMax, scaleMin])
   const inputStyle: React.CSSProperties = {
     minWidth: 0, height: 34, border: '1px solid var(--border)', borderRadius: 8,
     background: 'var(--background)', color: 'var(--foreground)', padding: '0 9px', font: 'inherit', fontSize: 12,
@@ -95,8 +109,11 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
     ...config,
     ranges,
     ...(isFuel ? { fuelRangesByUnit: { ...config.fuelRangesByUnit, [config.fuelUnit]: ranges } } : {}),
+    ...(!isFuel ? { metricRangesByKey: { ...config.metricRangesByKey, [config.metricKey]: ranges } } : {}),
   })
-  const currentRanges = isFuel ? normalizeFuelRanges(config.ranges, scaleMax) : config.ranges
+  const currentRanges = isFuel
+    ? normalizeFuelRanges(config.ranges, scaleMax)
+    : config.metricRangesByKey[config.metricKey] ?? config.ranges
   const getFuelBoundaryPreview = (value: number) => {
     const snappedValue = Math.max(0, Math.min(scaleMax, Math.round(value)))
     if (currentRanges.length === 0) {
@@ -124,7 +141,7 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
     return { kind: 'extend' as const, min, max: snappedValue, color: FUEL_RANGE_COLOR_PALETTE[colorIndex] }
   }
   const addFuelBoundary = (value: number) => {
-    setFuelEditorOpen(true)
+    setRangeEditorOpen(true)
     const preview = getFuelBoundaryPreview(value)
     if (!preview || preview.kind === 'existing') return
     const id = `fuel-range-${Date.now()}`
@@ -143,6 +160,49 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
       : [...currentRanges, { id, min: preview.min, max: preview.max, color: preview.color, colorMode: 'auto' as const }].sort((a, b) => a.min - b.min)
     updateRanges(applyAutomaticRangeColors(nextRanges))
   }
+  const getMetricBoundaryPreview = (value: number) => {
+    const step = activeMetric?.step ?? 1
+    const snappedValue = Math.max(scaleMin, Math.min(scaleMax, Math.round(value / step) * step))
+    const palette = getMetricRangePalette(config.metricKey)
+    if (currentRanges.length === 0) {
+      return { kind: 'first' as const, min: scaleMin, max: Math.min(scaleMax, Math.max(scaleMin + step, snappedValue)), color: palette[0] }
+    }
+    const existing = currentRanges.find(range => Math.abs(range.max - snappedValue) < step / 2)
+      ?? currentRanges.find(range => Math.abs(range.min - snappedValue) < step / 2)
+    if (existing) return { kind: 'existing' as const, min: existing.min, max: existing.max, color: existing.color }
+    const targetIndex = currentRanges.findIndex(range => snappedValue > range.min && snappedValue < range.max)
+    const target = currentRanges[targetIndex]
+    if (target) {
+      if (snappedValue - target.min < step || target.max - snappedValue < step) return null
+      return { kind: 'split' as const, min: snappedValue, max: target.max, color: palette[(targetIndex + 1) % palette.length] }
+    }
+    const previous = [...currentRanges].reverse().find(range => range.max < snappedValue)
+    const next = currentRanges.find(range => range.min > snappedValue)
+    const min = previous?.max ?? scaleMin
+    if (snappedValue - min < step || (next && snappedValue > next.min)) return null
+    const colorIndex = currentRanges.filter(range => range.min < snappedValue).length % palette.length
+    return { kind: 'extend' as const, min, max: snappedValue, color: palette[colorIndex] }
+  }
+  const addMetricBoundary = (value: number) => {
+    setRangeEditorOpen(true)
+    const preview = getMetricBoundaryPreview(value)
+    if (!preview || preview.kind === 'existing') return
+    const id = `${config.metricKey}-range-${Date.now()}`
+    if (preview.kind === 'first') {
+      updateRanges([{ id, min: preview.min, max: preview.max, color: preview.color, colorMode: 'auto' }])
+      return
+    }
+    const targetIndex = currentRanges.findIndex(range => preview.kind === 'split' && preview.min > range.min && preview.min < range.max)
+    const nextRanges = preview.kind === 'split' && targetIndex >= 0
+      ? currentRanges.flatMap((range, index) => index === targetIndex
+          ? [
+              { ...range, max: preview.min },
+              { ...range, id, min: preview.min, color: preview.color, colorMode: 'auto' as const },
+            ]
+          : [range])
+      : [...currentRanges, { id, min: preview.min, max: preview.max, color: preview.color, colorMode: 'auto' as const }].sort((a, b) => a.min - b.min)
+    updateRanges(applyAutomaticRangeColors(nextRanges, getMetricRangePalette(config.metricKey)))
+  }
   const moveFuelBoundary = (boundaryIndex: number, value: number) => {
     const left = currentRanges[boundaryIndex]
     const right = currentRanges[boundaryIndex + 1]
@@ -157,46 +217,60 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
         ? { ...range, min: boundary }
         : range))
   }
+  const moveMetricBoundary = (boundaryIndex: number, value: number) => {
+    setRangeEditorOpen(true)
+    const step = activeMetric?.step ?? 1
+    const left = currentRanges[boundaryIndex]
+    const right = currentRanges[boundaryIndex + 1]
+    if (!left) return
+    const minimum = left.min + step
+    const maximum = right ? right.max - step : scaleMax
+    if (minimum > maximum) return
+    const boundary = Math.max(minimum, Math.min(maximum, Math.round(value / step) * step))
+    updateRanges(currentRanges.map((range, index) => index === boundaryIndex
+      ? { ...range, max: boundary }
+      : right && index === boundaryIndex + 1
+        ? { ...range, min: boundary }
+        : range))
+  }
   const fuelRangeLimits = (index: number) => ({
-    min: currentRanges[index - 1]?.max ?? 0,
+    min: currentRanges[index - 1]?.max ?? scaleMin,
     max: currentRanges[index + 1]?.min ?? scaleMax,
   })
   const updateRange = (id: string, patch: Partial<MapColorRange>) => {
     const index = currentRanges.findIndex(range => range.id === id)
     if (index < 0) return
-    if (!isFuel) {
-      updateRanges(currentRanges.map(range => range.id === id ? { ...range, ...patch } : range))
-      return
-    }
-
     const range = currentRanges[index]
     const limits = fuelRangeLimits(index)
+    const step = isFuel ? 1 : activeMetric?.step ?? 1
     const min = patch.min === undefined
       ? range.min
-      : Math.max(limits.min, Math.min(Math.min(range.max - 1, limits.max - 1), patch.min))
+      : Math.max(limits.min, Math.min(Math.min(range.max - step, limits.max - step), patch.min))
     const max = patch.max === undefined
       ? range.max
-      : Math.max(min + 1, Math.min(limits.max, patch.max))
+      : Math.max(min + step, Math.min(limits.max, patch.max))
     updateRanges(currentRanges.map(item => item.id === id
       ? { ...item, ...patch, min, max, ...(patch.color !== undefined ? { colorMode: 'custom' as const } : {}) }
       : item))
   }
   const addRange = () => {
-    if (isFuel) setFuelEditorOpen(true)
+    setRangeEditorOpen(true)
+    const step = isFuel ? 1 : activeMetric?.step ?? 1
     if (currentRanges.length === 0) {
-      const max = Math.max(1, Math.round(scaleMax * 0.3))
-      updateRanges([{ id: `fuel-range-${Date.now()}`, min: 0, max, color: FUEL_RANGE_COLOR_PALETTE[0], colorMode: 'auto' }])
+      const max = Math.min(scaleMax, Math.max(scaleMin + step, scaleMin + Math.round((scaleMax - scaleMin) * 0.3 / step) * step))
+      const palette = isFuel ? FUEL_RANGE_COLOR_PALETTE : getMetricRangePalette(config.metricKey)
+      updateRanges([{ id: `${config.metricKey}-range-${Date.now()}`, min: scaleMin, max, color: palette[0], colorMode: 'auto' }])
       return
     }
     const targetIndex = currentRanges.reduce((bestIndex, range, index, list) => range.max - range.min > list[bestIndex].max - list[bestIndex].min ? index : bestIndex, 0)
     const target = currentRanges[targetIndex]
-    if (!target || target.max - target.min < 2) return
-    const splitAt = Math.min(target.max - 1, Math.max(target.min + 1, Math.round((target.min + target.max) / 2)))
+    if (!target || target.max - target.min < step * 2) return
+    const splitAt = Math.min(target.max - step, Math.max(target.min + step, Math.round((target.min + target.max) / 2 / step) * step))
     const firstHalf = { ...target, max: splitAt }
     const secondHalf = { ...target, id: `range-${Date.now()}`, min: splitAt, colorMode: 'auto' as const }
-    updateRanges(applyAutomaticRangeColors(currentRanges.flatMap((range, index) => index === targetIndex ? [firstHalf, secondHalf] : [range])))
+    updateRanges(applyAutomaticRangeColors(currentRanges.flatMap((range, index) => index === targetIndex ? [firstHalf, secondHalf] : [range]), isFuel ? FUEL_RANGE_COLOR_PALETTE : getMetricRangePalette(config.metricKey)))
   }
-  const removeRange = (id: string) => updateRanges(applyAutomaticRangeColors(currentRanges.filter(range => range.id !== id)))
+  const removeRange = (id: string) => updateRanges(applyAutomaticRangeColors(currentRanges.filter(range => range.id !== id), isFuel ? FUEL_RANGE_COLOR_PALETTE : getMetricRangePalette(config.metricKey)))
   const setFuelUnit = (fuelUnit: FuelUnit) => {
     const currentFuelRanges = isFuel ? config.ranges : config.fuelRangesByUnit[config.fuelUnit]
     onChange({
@@ -215,6 +289,44 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
       fuelTankCapacityLiters: nextCapacity,
       fuelRangesByUnit: { ...config.fuelRangesByUnit, liter: literRanges },
       ...(isFuel && config.fuelUnit === 'liter' ? { ranges: literRanges } : {}),
+    })
+  }
+  const setMetricScaleMaximum = (maximum: number) => {
+    if (!activeMetric || !Number.isFinite(maximum)) return
+    const step = activeMetric.step || 1
+    const nextMaximum = Math.max(scaleMin + step, Math.round(maximum / step) * step)
+    let cursor = scaleMin
+    const nextRanges = [...currentRanges].sort((a, b) => a.min - b.min).flatMap(range => {
+      const min = Math.max(cursor, range.min)
+      const max = Math.min(nextMaximum, range.max)
+      if (max - min < step) return []
+      cursor = max
+      return [{ ...range, min, max }]
+    })
+    onChange({
+      ...config,
+      ranges: nextRanges,
+      metricRangesByKey: { ...config.metricRangesByKey, [config.metricKey]: nextRanges },
+      metricScaleMaxByKey: { ...config.metricScaleMaxByKey, [config.metricKey]: nextMaximum },
+    })
+  }
+  const setMetricScaleMinimum = (minimum: number) => {
+    if (!activeMetric || !Number.isFinite(minimum)) return
+    const step = activeMetric.step || 1
+    const nextMinimum = Math.min(scaleMax - step, Math.round(minimum / step) * step)
+    let cursor = nextMinimum
+    const nextRanges = [...currentRanges].sort((a, b) => a.min - b.min).flatMap(range => {
+      const min = Math.max(cursor, range.min)
+      const max = range.max
+      if (max - min < step) return []
+      cursor = max
+      return [{ ...range, min, max }]
+    })
+    onChange({
+      ...config,
+      ranges: nextRanges,
+      metricRangesByKey: { ...config.metricRangesByKey, [config.metricKey]: nextRanges },
+      metricScaleMinByKey: { ...config.metricScaleMinByKey, [config.metricKey]: nextMinimum },
     })
   }
 
@@ -236,7 +348,7 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
     return value === null || !orderedRanges.some((range, index) => isInRange(value, index))
   }).length
   useLayoutEffect(() => {
-    if (!showFuelEditor) return
+    if (!showRangeEditor) return
     const updatePlacement = () => {
       const bounds = layoutRef.current?.getBoundingClientRect()
       if (!bounds) return
@@ -244,35 +356,32 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
       const gap = 10
       const roomOnLeft = bounds.left
       const roomOnRight = window.innerWidth - bounds.right
-      if (roomOnLeft >= cardWidth + gap) setFuelEditorPlacement('left')
-      else if (roomOnRight >= cardWidth + gap) setFuelEditorPlacement('right')
-      else setFuelEditorPlacement('below')
+      if (roomOnLeft >= cardWidth + gap) setRangeEditorPlacement('left')
+      else if (roomOnRight >= cardWidth + gap) setRangeEditorPlacement('right')
+      else setRangeEditorPlacement('below')
     }
     updatePlacement()
     window.addEventListener('resize', updatePlacement)
     return () => window.removeEventListener('resize', updatePlacement)
-  }, [showFuelEditor])
+  }, [showRangeEditor])
   const rangeEditor = <>
     <div className="fuel-ranges-heading">
       <strong>{t('map_threshold_ranges')}</strong>
       <button type="button" onClick={() => updateRanges(isFuel ? applyAutomaticRangeColors(getDefaultFuelRanges(config.fuelUnit, config.fuelTankCapacityLiters)) : getDefaultMetricRanges(activeMetric))} style={smallButton}>{t('map_recommended_ranges')}</button>
-      {isFuel && <button type="button" onClick={() => setFuelEditorOpen(false)} aria-label={t('ctrl_close')} title={t('ctrl_close')} style={{ ...smallButton, width: 31, padding: 0 }}>×</button>}
+      <button type="button" onClick={() => setRangeEditorOpen(false)} aria-label={t('ctrl_close')} title={t('ctrl_close')} style={{ ...smallButton, width: 31, padding: 0 }}>×</button>
     </div>
     <div className="fuel-ranges-list">
       {currentRanges.map((range, index) => {
         const limits = fuelRangeLimits(index)
         return <div key={range.id} className="legend-range-row">
         <ColorPickerField value={range.color} label={`${t('map_range_color')} ${index + 1}`} onChange={color => updateRange(range.id, { color })}/>
-        {isFuel ? <div className="legend-range-control">
+        <div className="legend-range-control">
           <div className="legend-range-boundaries">
-            <EditableBoundary value={range.min} suffix={activeUnit} label={t('map_minimum')} limits={[limits.min, Math.min(range.max - 1, limits.max - 1)]} step={1} onCommit={min => updateRange(range.id, { min })}/>
-            <EditableBoundary value={range.max} suffix={activeUnit} label={t('map_maximum')} limits={[range.min + 1, limits.max]} step={1} onCommit={max => updateRange(range.id, { max })}/>
+            <EditableBoundary value={range.min} suffix={activeUnit} label={t('map_minimum')} limits={[limits.min, Math.min(range.max - (isFuel ? 1 : activeMetric?.step ?? 1), limits.max - (isFuel ? 1 : activeMetric?.step ?? 1))]} step={isFuel ? 1 : activeMetric?.step ?? 1} onCommit={min => updateRange(range.id, { min })}/>
+            <EditableBoundary value={range.max} suffix={activeUnit} label={t('map_maximum')} limits={[range.min + (isFuel ? 1 : activeMetric?.step ?? 1), limits.max]} step={isFuel ? 1 : activeMetric?.step ?? 1} onCommit={max => updateRange(range.id, { max })}/>
           </div>
-          <RangeSlider value={[range.min, range.max]} min={limits.min} max={limits.max} step={1} labels={[`${t('map_minimum')} ${activeUnit}`, `${t('map_maximum')} ${activeUnit}`]} onValueChange={([min, max]) => updateRange(range.id, { min, max })}/>
-        </div> : <>
-          <label className="legend-range-number">{`${t('map_minimum')}${activeUnit ? ` (${activeUnit})` : ''}`}<input type="number" min={activeMetric?.kind === 'temperature' ? undefined : activeMetric?.min} max={activeMetric?.max} step={activeMetric?.step ?? 1} value={range.min} onChange={event => updateRange(range.id, { min: Number(event.target.value) })} style={{ ...inputStyle, width: '100%', height: 30 }}/></label>
-          <label className="legend-range-number">{`${t('map_maximum')}${activeUnit ? ` (${activeUnit})` : ''}`}<input type="number" min={activeMetric?.kind === 'temperature' ? undefined : activeMetric?.min} max={activeMetric?.max} step={activeMetric?.step ?? 1} value={range.max} onChange={event => updateRange(range.id, { max: Number(event.target.value) })} style={{ ...inputStyle, width: '100%', height: 30 }}/></label>
-        </>}
+          <RangeSlider value={[range.min, range.max]} min={limits.min} max={limits.max} step={isFuel ? 1 : activeMetric?.step ?? 1} labels={[`${t('map_minimum')} ${activeUnit}`, `${t('map_maximum')} ${activeUnit}`]} onValueChange={([min, max]) => updateRange(range.id, { min, max })}/>
+        </div>
         <button type="button" onClick={() => removeRange(range.id)} aria-label={t('map_remove_range')} title={t('map_remove_range')} style={{ ...smallButton, width: 30, padding: 0, color: '#ef4444' }}>×</button>
       </div>
       })}
@@ -315,7 +424,10 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
           <select value={config.mode} onChange={event => {
             const mode = event.target.value as MapLegendConfig['mode']
             const metric = options.find(option => option.key === config.metricKey) ?? options[0]
-            onChange({ ...config, mode, ranges: mode === 'metric' ? (metric.key === 'fuelLevel' ? config.fuelRangesByUnit[config.fuelUnit] : getDefaultMetricRanges(metric)) : config.ranges })
+            const nextRanges = metric.key === 'fuelLevel'
+              ? config.fuelRangesByUnit[config.fuelUnit]
+              : config.metricRangesByKey[metric.key] ?? (metric.key === config.metricKey ? config.ranges : [])
+            onChange({ ...config, mode, ranges: mode === 'metric' ? nextRanges : config.ranges, ...(!isFuel && mode === 'metric' ? { metricRangesByKey: { ...config.metricRangesByKey, [metric.key]: nextRanges } } : {}) })
           }} style={inputStyle}>
             <option value="status">{t('map_color_status')}</option><option value="metric">{t('map_color_metric')}</option>
           </select>
@@ -335,8 +447,20 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
             {t('map_sensor_or_value')}
             <select value={config.metricKey} onChange={event => {
               const next = options.find(option => option.key === event.target.value) ?? options[0]
-              onChange({ ...config, metricKey: next.key, ranges: next.key === 'fuelLevel' ? config.fuelRangesByUnit[config.fuelUnit] : getDefaultMetricRanges(next) })
-              setFuelEditorOpen(false)
+              const nextRanges = next.key === 'fuelLevel'
+                ? config.fuelRangesByUnit[config.fuelUnit]
+                : config.metricRangesByKey[next.key] ?? []
+              onChange({
+                ...config,
+                metricKey: next.key,
+                ranges: nextRanges,
+                metricRangesByKey: {
+                  ...config.metricRangesByKey,
+                  ...(!isFuel ? { [config.metricKey]: currentRanges } : {}),
+                  ...(next.key !== 'fuelLevel' ? { [next.key]: nextRanges } : {}),
+                },
+              })
+              setRangeEditorOpen(false)
             }} style={inputStyle}>
               {(['vehicle', 'gps', 'sensor'] as const).map(source => <optgroup key={source} label={t(`map_source_${source}`)}>
                 {options.filter(option => option.source === source).map(option => <option key={option.key} value={option.key}>{metricLabel(option.key, option.label)}{option.unit ? ` (${option.key === 'fuelLevel' ? unitText(config.fuelUnit) : option.unit})` : ''}</option>)}
@@ -363,19 +487,69 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
             </>}
           </>}
 
-          {isFuel ? <FuelLevelGauge unit={config.fuelUnit} unitLabel={unitText(config.fuelUnit)} capacity={config.fuelTankCapacityLiters} ranges={config.fuelRangesByUnit[config.fuelUnit]} noDataColor={config.noDataColor} title={t('map_metric_fuel')} editHint={t('map_click_to_edit')} expanded={fuelEditorOpen} onAddBoundary={addFuelBoundary} onMoveBoundary={moveFuelBoundary} getBoundaryPreview={getFuelBoundaryPreview} /> : <>
-            {rangeEditor}
-            <p style={{ margin: 0, padding: '8px 9px', borderRadius: 8, background: 'color-mix(in srgb, var(--primary) 8%, var(--card))', color: 'var(--muted-foreground)', fontSize: 10.5, lineHeight: 1.55 }}>{t('map_sensor_hint')}</p>
+          {!isFuel && activeMetric && <>
+            {activeMetric.key === 'refrigerator_temperature' && <label style={{ display: 'grid', gridTemplateColumns: '1fr 110px', alignItems: 'center', gap: 9, fontSize: 11, fontWeight: 700 }}>
+              {t('map_scale_minimum')}
+              <input
+                type="number"
+                max={scaleMax - (activeMetric.step || 1)}
+                step={activeMetric.step || 1}
+                value={metricScaleMinDraft}
+                onChange={event => setMetricScaleMinDraft(event.target.value)}
+                onBlur={() => {
+                  const value = Number(metricScaleMinDraft)
+                  if (metricScaleMinDraft !== '' && Number.isFinite(value)) setMetricScaleMinimum(value)
+                  else setMetricScaleMinDraft(String(scaleMin))
+                }}
+                onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                style={inputStyle}
+                aria-label={`${t('map_scale_minimum')} (${activeMetric.unit})`}
+              />
+            </label>}
+            <label style={{ display: 'grid', gridTemplateColumns: '1fr 110px', alignItems: 'center', gap: 9, fontSize: 11, fontWeight: 700 }}>
+              {t('map_scale_maximum')}
+              <input
+                type="number"
+                min={scaleMin + (activeMetric.step || 1)}
+                step={activeMetric.step || 1}
+                value={metricScaleMaxDraft}
+                onChange={event => setMetricScaleMaxDraft(event.target.value)}
+                onBlur={() => {
+                  const value = Number(metricScaleMaxDraft)
+                  if (metricScaleMaxDraft !== '' && Number.isFinite(value)) setMetricScaleMaximum(value)
+                  else setMetricScaleMaxDraft(String(scaleMax))
+                }}
+                onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                style={inputStyle}
+                aria-label={`${t('map_scale_maximum')} (${activeMetric.unit})`}
+              />
+            </label>
           </>}
+
+          {isFuel ? <FuelLevelGauge unit={config.fuelUnit} unitLabel={unitText(config.fuelUnit)} capacity={config.fuelTankCapacityLiters} ranges={config.fuelRangesByUnit[config.fuelUnit]} noDataColor={config.noDataColor} title={t('map_metric_fuel')} editHint={t('map_click_to_edit')} expanded={rangeEditorOpen} onAddBoundary={addFuelBoundary} onMoveBoundary={moveFuelBoundary} getBoundaryPreview={getFuelBoundaryPreview} /> : activeMetric && <MetricRangeGauge
+            metric={activeMetric}
+            minimum={scaleMin}
+            maximum={scaleMax}
+            ranges={currentRanges}
+            noDataColor={config.noDataColor}
+            title={metricLabel(activeMetric.key, activeMetric.label)}
+            editHint={t('map_click_to_edit')}
+            openRangesLabel={t('map_edit_ranges')}
+            expanded={rangeEditorOpen}
+            onOpenEditor={() => setRangeEditorOpen(true)}
+            onAddBoundary={addMetricBoundary}
+            onMoveBoundary={moveMetricBoundary}
+            getBoundaryPreview={getMetricBoundaryPreview}
+          />}
         </>}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 9 }}>
           <span style={{ color: 'var(--muted-foreground)', fontSize: 9.5 }}>{t('map_saved_in_browser')}</span>
-          <button type="button" onClick={() => { setFuelEditorOpen(false); onChange({ ...DEFAULT_MAP_LEGEND, statusColors: { ...DEFAULT_MAP_LEGEND.statusColors }, fuelRangesByUnit: { percent: [], liter: [] } }) }} style={smallButton}>{t('map_reset_settings')}</button>
+          <button type="button" onClick={() => { setRangeEditorOpen(false); onChange({ ...DEFAULT_MAP_LEGEND, statusColors: { ...DEFAULT_MAP_LEGEND.statusColors }, fuelRangesByUnit: { percent: [], liter: [] }, metricRangesByKey: {}, metricScaleMaxByKey: {}, metricScaleMinByKey: {} }) }} style={smallButton}>{t('map_reset_settings')}</button>
         </div>
       </div>
     </section>
-    {showFuelEditor && <aside className={`fuel-ranges-card is-detached is-${fuelEditorPlacement}`} aria-label={t('map_threshold_ranges')}>
+    {showRangeEditor && <aside className={`fuel-ranges-card is-detached is-${rangeEditorPlacement}`} aria-label={t('map_threshold_ranges')}>
       {rangeEditor}
       <p className="fuel-ranges-hint">{t('map_sensor_hint')}</p>
     </aside>}
