@@ -4,6 +4,8 @@ import { useLanguage } from '../contexts/LanguageContext'
 import LegendPanel from './LegendPanel'
 import type { MapLegendConfig } from '../utils/mapLegend'
 import PaletteSwitcher from '../shared/PaletteSwitcher'
+import CursorShowcaseModal from './CursorShowcaseModal'
+import { GPSNavArrowIcon } from '../utils/gpsCursors'
 
 interface Props {
   darkMode: boolean
@@ -33,6 +35,8 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
   const searchRef = useRef<HTMLDivElement>(null)
   const legendRef = useRef<HTMLDivElement>(null)
   const [legendOpen, setLegendOpen] = useState(false)
+  const [cursorModalOpen, setCursorModalOpen] = useState(false)
+  const [radarPingEnabled, setRadarPingEnabled] = useState(true)
 
   const chipFilters = [
     { id: 'all',     labelKey: 'filter_all' as const },
@@ -249,6 +253,21 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
       {/* Right controls */}
       {!hideRightControls && <div style={{ display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'all' }}>
         <PaletteSwitcher variant="pill" />
+        {/* GPS Cursors Showcase Button */}
+        <button
+          type="button"
+          onClick={() => setCursorModalOpen(true)}
+          title={lang === 'ar' ? 'نظام ودليل مؤشرات التتبع (GPS Cursors)' : 'GPS Telemetry Cursors System'}
+          aria-label={lang === 'ar' ? 'نظام ودليل مؤشرات التتبع' : 'GPS Telemetry Cursors System'}
+          style={{
+            ...ctrlBtnStyle,
+            color: 'var(--primary)',
+            background: cursorModalOpen ? 'color-mix(in srgb, var(--primary) 12%, var(--card))' : 'color-mix(in srgb, var(--card) 96%, transparent)',
+            borderColor: cursorModalOpen ? 'var(--primary)' : 'var(--border)',
+          }}
+        >
+          <GPSNavArrowIcon size={19} />
+        </button>
         {/* Language toggle */}
         <button
           onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}
@@ -328,6 +347,14 @@ export default function TopBar({ darkMode, onToggleDark, vehicles, onVehicleSele
           </svg>
         </div>
       </div>}
+      <div style={{ pointerEvents: 'auto' }}>
+        <CursorShowcaseModal
+          open={cursorModalOpen}
+          onClose={() => setCursorModalOpen(false)}
+          radarPingEnabled={radarPingEnabled}
+          onToggleRadarPing={() => setRadarPingEnabled(v => !v)}
+        />
+      </div>
     </div>
   )
 }

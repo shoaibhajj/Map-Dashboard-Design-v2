@@ -3,6 +3,7 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'mapbox-gl/dist/mapbox-gl.css';
 @import 'tailwindcss';
+@import './styles/gps-cursors.css';
 
 @theme {
   --font-sans: 'Inter', system-ui, sans-serif;

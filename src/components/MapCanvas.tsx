@@ -322,8 +322,11 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     map.on('load', () => { ensureRouteLayers(map); setMapLoaded(true) })
     map.on('zoom', () => setZoom(Math.round(map.getZoom())))
     map.on('click', () => onMapClickRef.current())
+    map.on('dragstart', () => document.body.classList.add('is-map-dragging'))
+    map.on('dragend', () => document.body.classList.remove('is-map-dragging'))
 
     return () => {
+      document.body.classList.remove('is-map-dragging')
       markersRef.current.forEach(m => m.remove())
       markersRef.current.clear()
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }

@@ -36,6 +36,10 @@ export default function BottomSheet({ vehicles, selectedVehicle, height, onHeigh
     if (!selectedVehicle) setView(current => current === 'raw' ? 'status' : current)
   }, [selectedVehicle?.id])
 
+  useEffect(() => {
+    return () => { document.body.classList.remove('is-bottomsheet-dragging') }
+  }, [])
+
   const rawRows = useMemo(() => activeVehicle?.rawDeviceData ? [
     { time: activeVehicle.lastUpdate, name: activeVehicle.name, vehicle: activeVehicle.plate, point: 'raw', value: activeVehicle.rawDeviceData.raw, unit: '' },
   ] : [], [activeVehicle])
@@ -52,6 +56,7 @@ export default function BottomSheet({ vehicles, selectedVehicle, height, onHeigh
     startedOnDock.current = (e.target as Element).closest('[data-fleet-open]') !== null
     dragStart.current = { y: e.clientY, height }
     moved.current = false
+    document.body.classList.add('is-bottomsheet-dragging')
   }, [height])
   const moveDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragStart.current) return
@@ -74,8 +79,12 @@ export default function BottomSheet({ vehicles, selectedVehicle, height, onHeigh
       } else if (requested < MIN_HEIGHT) onHeightChange(0)
     }
     dragStart.current = null
+    document.body.classList.remove('is-bottomsheet-dragging')
   }, [onHeightChange])
-  const cancelDrag = useCallback(() => { dragStart.current = null }, [])
+  const cancelDrag = useCallback(() => {
+    dragStart.current = null
+    document.body.classList.remove('is-bottomsheet-dragging')
+  }, [])
   const toggle = () => {
     if (moved.current) { moved.current = false; return }
     onHeightChange(height === 0 ? Math.round(window.innerHeight * 0.48) : 0)

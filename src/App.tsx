@@ -4,6 +4,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './routes/ProtectedRoute'
+import GPSCursorEffects from './components/GPSCursorEffects'
 
 const LandingPage = lazy(() => import('./marketing/LandingPage'))
 const Login = lazy(() => import('./auth/Login'))
@@ -16,6 +17,7 @@ const AdvertisementRoute = lazy(() => import('./routes/AdvertisementRoute'))
 export default function App() {
   return (
     <ThemeProvider>
+      <GPSCursorEffects />
       <LanguageProvider>
         <AuthProvider>
           <BrowserRouter>

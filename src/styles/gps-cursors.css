@@ -1,0 +1,171 @@
+/* ==========================================================================
+   GPS Telemetry Cursors System - Fleet & Map Navigation
+   Solid 2-Color Architecture: Solid Dark Fill + Vibrant Theme Green Border
+   ========================================================================== */
+
+/* ── 1. Default Palette: FleetView Emerald Green (#22c55e) ───────────────── */
+:root {
+  /* 1. Default: Solid Navigation Arrow (Hotspot: 3, 2) */
+  --cursor-default: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_arrow' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_arrow)'%3E%3Cpath d='M 3 2 L 22 11 L 13 14 L 9 24 Z' fill='%23091812' stroke='%2322c55e' stroke-width='2' stroke-linejoin='round'/%3E%3Cline x1='3' y1='2' x2='13' y2='14' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 3 2, default;
+
+  /* 2. Map Default: Solid Open Hand (No Radar, Clear Fingers) (Hotspot: 14, 14) */
+  --cursor-grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_open' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_open)'%3E%3Cpath d='M 8 25 C 7 22, 5 18, 4 15 C 3 13, 5 11.5, 6.8 13.2 L 8.5 15 L 8.5 6 C 8.5 4.5, 11 4.5, 11 6 L 11 12.5 L 12 12.5 L 12 3 C 12 1.5, 14.5 1.5, 14.5 3 L 14.5 12.5 L 15.5 12.5 L 15.5 5 C 15.5 3.5, 18 3.5, 18 5 L 18 13 L 19 13 L 19 8 C 19 6.5, 21.5 6.5, 21.5 8 L 21.5 17 C 21.5 21.5, 18 25.5, 13.5 25.5 Z' fill='%23091812' stroke='%2322c55e' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/%3E%3Cline x1='11' y1='7' x2='11' y2='14' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='14.5' y1='5' x2='14.5' y2='14' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='18' y1='7' x2='18' y2='15' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='8.5' y1='15' x2='11.5' y2='18' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 14 14, grab;
+
+  /* 3. Map Dragging: Solid Grabbing Fist (No Radar, Clear Knuckles) (Hotspot: 14, 14) */
+  --cursor-grabbing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_fist' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_fist)'%3E%3Cpath d='M 7 24 C 5.5 20.5, 4.5 17, 4.5 14 C 4.5 11.5, 7 10.5, 9 12 L 9.5 12.5 C 9.5 10.5, 11 8.5, 13 8.5 C 14 8.5, 14.8 9, 15.2 9.8 C 15.8 9, 16.8 8.5, 17.8 8.8 C 18.6 9, 19.2 9.8, 19.5 10.8 C 20.2 10.5, 21.5 11, 22 12.2 C 22.5 13.5, 22.5 16, 21.8 18.5 C 20.8 21.8, 17.5 24.5, 13 24.5 Z' fill='%23091812' stroke='%2322c55e' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/%3E%3Cpath d='M 13 8.5 L 13 15' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M 16.5 9 L 16.5 15' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M 19.5 11 L 19.5 16' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M 5 14 C 7.5 12, 10.5 15, 13 17' stroke='%2322c55e' stroke-width='1.6' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 14 14, grabbing;
+
+  /* 4. Interactive Hover: Pointing Hand with Raised Index Finger (Hotspot: 8, 2) */
+  --cursor-pointer: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_point' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_point)'%3E%3Cpath d='M 7.5 2 C 6 2, 6 3.8, 6 5.5 L 6 13.5 C 4.5 12.5, 2.8 13.5, 2.8 15.5 C 2.8 17.5, 4.8 19, 7 18 L 7.5 18 L 7.5 23.5 C 7.5 25.5, 10.5 26, 13 26 C 17.5 26, 20 22.5, 20 18.5 L 20 13 C 20 11.5, 18 11.5, 18 13 L 18 13.5 C 17.5 12, 15.5 12, 15.5 13.5 L 15.5 14 C 15 12.5, 13 12.5, 13 14 L 13 14.5 L 10.5 14.5 L 10.5 5.5 C 10.5 3.8, 10.5 2, 9 2 Z' fill='%23091812' stroke='%2322c55e' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/%3E%3Cline x1='13' y1='14' x2='13' y2='18' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='15.5' y1='14' x2='15.5' y2='18' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='18' y1='13.5' x2='18' y2='17.5' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M 4 16 C 6 15.5, 7.5 17.5, 9.5 18.5' stroke='%2322c55e' stroke-width='1.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 8 2, pointer;
+
+  /* 5. BottomSheet Resize Handle: Solid Line with Top & Bottom Triangles (Hotspot: 14, 14) */
+  --cursor-ns-resize: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_res' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_res)'%3E%3Cpolygon points='14,2 20,8.5 8,8.5' fill='%23091812' stroke='%2322c55e' stroke-width='2' stroke-linejoin='round'/%3E%3Cpolygon points='14,26 8,19.5 20,19.5' fill='%23091812' stroke='%2322c55e' stroke-width='2' stroke-linejoin='round'/%3E%3Cline x1='14' y1='8.5' x2='14' y2='19.5' stroke='%2322c55e' stroke-width='2.2' stroke-linecap='round'/%3E%3Ccircle cx='14' cy='14' r='2.5' fill='%23091812' stroke='%2322c55e' stroke-width='1.8'/%3E%3C/g%3E%3C/svg%3E") 14 14, ns-resize;
+}
+
+/* ── 2. Second Palette: Petroleum & Mint Green (#00e8b4) ─────────────────── */
+:root[data-palette="tripmonitor"] {
+  /* 1. Default: Solid Navigation Arrow in Mint */
+  --cursor-default: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_arrow' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_arrow)'%3E%3Cpath d='M 3 2 L 22 11 L 13 14 L 9 24 Z' fill='%23031a20' stroke='%2300e8b4' stroke-width='2' stroke-linejoin='round'/%3E%3Cline x1='3' y1='2' x2='13' y2='14' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 3 2, default;
+
+  /* 2. Map Default: Solid Open Hand in Mint */
+  --cursor-grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_open' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_open)'%3E%3Cpath d='M 8 25 C 7 22, 5 18, 4 15 C 3 13, 5 11.5, 6.8 13.2 L 8.5 15 L 8.5 6 C 8.5 4.5, 11 4.5, 11 6 L 11 12.5 L 12 12.5 L 12 3 C 12 1.5, 14.5 1.5, 14.5 3 L 14.5 12.5 L 15.5 12.5 L 15.5 5 C 15.5 3.5, 18 3.5, 18 5 L 18 13 L 19 13 L 19 8 C 19 6.5, 21.5 6.5, 21.5 8 L 21.5 17 C 21.5 21.5, 18 25.5, 13.5 25.5 Z' fill='%23031a20' stroke='%2300e8b4' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/%3E%3Cline x1='11' y1='7' x2='11' y2='14' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='14.5' y1='5' x2='14.5' y2='14' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='18' y1='7' x2='18' y2='15' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='8.5' y1='15' x2='11.5' y2='18' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 14 14, grab;
+
+  /* 3. Map Dragging: Solid Grabbing Fist in Mint */
+  --cursor-grabbing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_fist' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_fist)'%3E%3Cpath d='M 7 24 C 5.5 20.5, 4.5 17, 4.5 14 C 4.5 11.5, 7 10.5, 9 12 L 9.5 12.5 C 9.5 10.5, 11 8.5, 13 8.5 C 14 8.5, 14.8 9, 15.2 9.8 C 15.8 9, 16.8 8.5, 17.8 8.8 C 18.6 9, 19.2 9.8, 19.5 10.8 C 20.2 10.5, 21.5 11, 22 12.2 C 22.5 13.5, 22.5 16, 21.8 18.5 C 20.8 21.8, 17.5 24.5, 13 24.5 Z' fill='%23031a20' stroke='%2300e8b4' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/%3E%3Cpath d='M 13 8.5 L 13 15' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M 16.5 9 L 16.5 15' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M 19.5 11 L 19.5 16' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M 5 14 C 7.5 12, 10.5 15, 13 17' stroke='%2300e8b4' stroke-width='1.6' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 14 14, grabbing;
+
+  /* 4. Interactive Hover: Pointing Hand in Mint */
+  --cursor-pointer: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_point' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_point)'%3E%3Cpath d='M 7.5 2 C 6 2, 6 3.8, 6 5.5 L 6 13.5 C 4.5 12.5, 2.8 13.5, 2.8 15.5 C 2.8 17.5, 4.8 19, 7 18 L 7.5 18 L 7.5 23.5 C 7.5 25.5, 10.5 26, 13 26 C 17.5 26, 20 22.5, 20 18.5 L 20 13 C 20 11.5, 18 11.5, 18 13 L 18 13.5 C 17.5 12, 15.5 12, 15.5 13.5 L 15.5 14 C 15 12.5, 13 12.5, 13 14 L 13 14.5 L 10.5 14.5 L 10.5 5.5 C 10.5 3.8, 10.5 2, 9 2 Z' fill='%23031a20' stroke='%2300e8b4' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/%3E%3Cline x1='13' y1='14' x2='13' y2='18' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='15.5' y1='14' x2='15.5' y2='18' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cline x1='18' y1='13.5' x2='18' y2='17.5' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M 4 16 C 6 15.5, 7.5 17.5, 9.5 18.5' stroke='%2300e8b4' stroke-width='1.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 8 2, pointer;
+
+  /* 5. BottomSheet Resize Handle in Mint */
+  --cursor-ns-resize: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'%3E%3Cdefs%3E%3Cfilter id='s_res' x='-25%25' y='-25%25' width='160%25' height='160%25'%3E%3CfeDropShadow dx='0' dy='1.5' stdDeviation='1.5' flood-color='%23000000' flood-opacity='0.85'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s_res)'%3E%3Cpolygon points='14,2 20,8.5 8,8.5' fill='%23031a20' stroke='%2300e8b4' stroke-width='2' stroke-linejoin='round'/%3E%3Cpolygon points='14,26 8,19.5 20,19.5' fill='%23031a20' stroke='%2300e8b4' stroke-width='2' stroke-linejoin='round'/%3E%3Cline x1='14' y1='8.5' x2='14' y2='19.5' stroke='%2300e8b4' stroke-width='2.2' stroke-linecap='round'/%3E%3Ccircle cx='14' cy='14' r='2.5' fill='%23031a20' stroke='%2300e8b4' stroke-width='1.8'/%3E%3C/g%3E%3C/svg%3E") 14 14, ns-resize;
+}
+
+/* ==========================================================================
+   GLOBAL MAPPINGS FOR ALL 5 SYSTEM STATES
+   ========================================================================== */
+
+/* State 1: Default across application, panels, cards, tabs, and tables */
+html,
+body,
+#root,
+.static-fleet-sidebar,
+.vehicle-card,
+.dashboard-card,
+.card,
+[role="dialog"],
+[style*="cursor: default"],
+[style*="cursor:default"],
+.cursor-default {
+  cursor: var(--cursor-default);
+}
+
+/* State 2: Over Map - Open Hand (يد مفتوحة) */
+.mapboxgl-canvas-container.mapboxgl-interactive,
+.mapboxgl-canvas,
+.map-canvas-area,
+[data-map-canvas],
+[style*="cursor: grab"],
+[style*="cursor:grab"],
+.cursor-grab {
+  cursor: var(--cursor-grab) !important;
+}
+
+/* State 3: Active Map Dragging/Panning - Closed Fist Hand (مسكرة) */
+.mapboxgl-canvas-container.mapboxgl-interactive:active,
+.mapboxgl-canvas-container.mapboxgl-touch-drag,
+.mapboxgl-canvas-container.mapboxgl-interactive.mapboxgl-track-pointer:active,
+body.is-map-dragging,
+body.is-map-dragging *,
+[style*="cursor: grabbing"],
+[style*="cursor:grabbing"],
+.cursor-grabbing {
+  cursor: var(--cursor-grabbing) !important;
+}
+
+/* State 4: Interactive Hover - Pointing Hand with Index Finger Raised (يد ومرفوعة السبابة)
+   Applies across markers on map, buttons inside cards, tabs, links, and selectable items */
+button,
+a,
+[role="button"],
+[role="tab"],
+select,
+summary,
+label[for],
+input[type="submit"],
+input[type="button"],
+input[type="checkbox"],
+input[type="radio"],
+.mapboxgl-marker,
+.mapboxgl-marker *,
+.mapboxgl-popup-close-button,
+.cursor-pointer,
+[style*="cursor: pointer"],
+[style*="cursor:pointer"] {
+  cursor: var(--cursor-pointer) !important;
+}
+
+/* State 5: BottomSheet Vertical Drag Handle - Line with Top & Bottom Triangles (كخط وفي نهايتيه مثلثين) */
+[style*="cursor: ns-resize"],
+[style*="cursor:ns-resize"],
+.cursor-ns-resize,
+[data-fleet-open],
+.bottom-sheet-handle,
+.fleet-drag-handle,
+body.is-bottomsheet-dragging,
+body.is-bottomsheet-dragging * {
+  cursor: var(--cursor-ns-resize) !important;
+}
+
+/* ── Interactive GPS Click Radar Micro-Animation ──────────────────────────── */
+.gps-click-ripple {
+  position: fixed;
+  pointer-events: none;
+  z-index: 99999;
+  transform: translate(-50%, -50%);
+}
+
+.gps-click-ripple .ripple-core {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--primary);
+  animation: gpsRippleCore 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.gps-click-ripple .ripple-wave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--primary);
+  box-shadow: 0 0 12px var(--primary);
+  animation: gpsRippleWave 0.55s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.gps-click-ripple .ripple-ticks {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  animation: gpsRippleTicks 0.45s ease-out forwards;
+}
+
+@keyframes gpsRippleCore {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
+@keyframes gpsRippleWave {
+  0% { width: 6px; height: 6px; opacity: 1; border-width: 2px; }
+  100% { width: 44px; height: 44px; opacity: 0; border-width: 0.8px; }
+}
+
+@keyframes gpsRippleTicks {
+  0% { transform: translate(-50%, -50%) scale(0.6) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.4) rotate(15deg); opacity: 0; }
+}
