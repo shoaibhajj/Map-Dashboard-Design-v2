@@ -63,7 +63,7 @@ export interface MapLegendConfig {
   /** Editable lower end of metrics whose operating range can extend below zero. */
   metricScaleMinByKey: Record<string, number>
   customSensors: CustomSensorDefinition[]
-  statusColors: Record<VehicleStatus, string>
+  statusColors: Record<VehicleStatus | 'towed', string>
   ranges: MapColorRange[]
   noDataColor: string
 }
@@ -169,6 +169,7 @@ export const DEFAULT_MAP_LEGEND: MapLegendConfig = {
     moving: '#16a34a',
     idle: '#ef4444',
     offline: '#6b7280',
+    towed: '#f5993d',
   },
   ranges: [],
   noDataColor: '#94a3b8',
@@ -441,7 +442,7 @@ export function getVehicleMetric(vehicle: Vehicle, metricKey: string, fuelUnit: 
 }
 
 export function getVehicleMapColor(vehicle: Vehicle, config: MapLegendConfig): string {
-  if (config.mode === 'status') return config.statusColors[vehicle.status]
+  if (config.mode === 'status') return vehicle.telemetry?.towing ? config.statusColors.towed : config.statusColors[vehicle.status]
   const value = getVehicleMetric(vehicle, config.metricKey, config.fuelUnit, config.fuelTankCapacityLiters, config.customSensors)
   if (value === null) return config.noDataColor
   const ordered = [...config.ranges].sort((a, b) => a.min - b.min)

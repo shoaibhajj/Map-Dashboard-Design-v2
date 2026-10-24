@@ -1,0 +1,270 @@
+.orbital-cluster-marker {
+  display: grid;
+  place-items: center;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.mapboxgl-marker.orbital-cluster-marker:hover,
+.mapboxgl-marker.orbital-cluster-marker:focus-within {
+  z-index: 1000 !important;
+}
+
+.orbital-cluster {
+  position: relative;
+  display: block;
+  overflow: visible;
+  isolation: isolate;
+  color: var(--foreground);
+  pointer-events: none;
+}
+
+.orbital-cluster-core-hit {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, #182842 0 21px, transparent 23px);
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.orbital-cluster-core-hit:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.orbital-cluster-count {
+  position: absolute;
+  z-index: 200;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0 5px;
+  border: 1px solid rgba(127, 230, 220, .54);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 24%, #263d60, #14233a 74%);
+  box-shadow: 0 0 12px rgba(36, 220, 190, .23), 0 0 26px rgba(71, 100, 255, .17), inset 0 0 12px rgba(121, 219, 226, .1);
+  color: #f5fbff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--primary) 64%, transparent);
+}
+
+.orbital-cluster-lane {
+  position: absolute;
+  z-index: calc(100 - var(--orbit-index));
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  /* Opacity controls for the halo gradient. Raise a value to make that part less transparent. */
+  --orbit-glow-core-opacity: 2%;
+  --orbit-glow-inner-opacity: 6%;
+  --orbit-glow-mid-opacity: 80%;
+  --orbit-glow-rim-opacity: 22%;
+  --orbit-glow-fade-opacity: 8%;
+}
+
+.orbital-cluster-lane::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--orbit-color) var(--orbit-glow-core-opacity), transparent) 0%,
+    color-mix(in srgb, var(--orbit-color) var(--orbit-glow-inner-opacity), transparent) 44%,
+    color-mix(in srgb, var(--orbit-color) var(--orbit-glow-mid-opacity), transparent) 74%,
+    color-mix(in srgb, var(--orbit-color) var(--orbit-glow-rim-opacity), transparent) 89%,
+    color-mix(in srgb, var(--orbit-color) var(--orbit-glow-fade-opacity), transparent) 100%
+  );
+  content: '';
+  pointer-events: none;
+}
+
+.orbital-cluster-lane:has(.orbital-cluster-vehicle:hover),
+.orbital-cluster-lane:has(.orbital-cluster-vehicle:focus-visible) {
+  z-index: 1000;
+}
+
+.orbital-cluster-rotor {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: 50%;
+  transform-origin: center;
+}
+
+.orbital-cluster-ring-path {
+  position: absolute;
+  inset: 0;
+  border: 2px solid color-mix(in srgb, var(--orbit-color) 88%, white 12%);
+  border-radius: 50%;
+  box-shadow: inset 0 0 44px 4px color-mix(in srgb, var(--orbit-color) 27%, transparent);
+  animation: orbital-cluster-ring-glow 4.2s ease-in-out infinite;
+  animation-delay: var(--orbit-delay);
+}
+
+.orbital-cluster-lane[data-orbit-outermost="true"] .orbital-cluster-ring-path {
+  box-shadow:
+    0 0 28px 7px color-mix(in srgb, var(--orbit-color) 32%, transparent),
+    0 0 48px 15px color-mix(in srgb, var(--orbit-color) 18%, transparent),
+    inset 0 0 48px 4px color-mix(in srgb, var(--orbit-color) 29%, transparent);
+  animation-name: orbital-cluster-outer-ring-glow;
+}
+
+.orbital-cluster-node {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(var(--orbit-phase)) translateY(calc(-1 * var(--orbit-radius)));
+  transform-origin: center;
+}
+
+.orbital-cluster-node-upright {
+  display: block;
+  transform: rotate(calc(-1 * var(--orbit-phase)));
+}
+
+.orbital-cluster-vehicle {
+  position: relative;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 150ms cubic-bezier(.16, 1, .3, 1), filter 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.orbital-cluster-vehicle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--orbit-color) 70%, white);
+  outline-offset: 4px;
+}
+
+.orbital-cluster-vehicle-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--orbit-color) 90%, white);
+  border-radius: 50%;
+  background: var(--orbit-color);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--orbit-color) 86%, transparent), 0 0 13px color-mix(in srgb, var(--orbit-color) 47%, transparent);
+  animation: none;
+}
+
+.orbital-cluster-vehicle:hover,
+.orbital-cluster-vehicle:focus-visible {
+  z-index: 30;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--orbit-color) 76%, transparent));
+  transform: scale(1.38);
+}
+
+.orbital-cluster-tooltip {
+  position: absolute;
+  z-index: 10000;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  display: grid;
+  width: max-content;
+  max-width: 214px;
+  gap: 5px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--orbit-color) 48%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card) 97%, transparent);
+  box-shadow: 0 9px 26px rgba(0, 0, 0, .32), 0 0 16px color-mix(in srgb, var(--orbit-color) 15%, transparent);
+  color: var(--foreground);
+  opacity: 0;
+  pointer-events: none;
+  text-align: start;
+  transform: translate(-50%, 4px) scale(.96);
+  transform-origin: bottom center;
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: normal;
+}
+
+.orbital-cluster-vehicle:hover .orbital-cluster-tooltip,
+.orbital-cluster-vehicle:focus-visible .orbital-cluster-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.orbital-cluster-tooltip-name {
+  max-width: 190px;
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbital-cluster-tooltip-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--secondary-foreground);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.orbital-cluster-tooltip-location {
+  max-width: 190px;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbital-cluster-tooltip-speed {
+  color: var(--orbit-color);
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.orbital-cluster:hover .orbital-cluster-ring-path,
+.orbital-cluster:focus-within .orbital-cluster-ring-path {
+  animation-play-state: paused;
+}
+
+@keyframes orbital-cluster-ring-glow {
+  0%, 100% { box-shadow: inset 0 0 38px 2px color-mix(in srgb, var(--orbit-color) 18%, transparent); }
+  50% { box-shadow: inset 0 0 50px 5px color-mix(in srgb, var(--orbit-color) 32%, transparent); }
+}
+
+@keyframes orbital-cluster-outer-ring-glow {
+  0%, 100% {
+    box-shadow: 0 0 24px 5px color-mix(in srgb, var(--orbit-color) 23%, transparent), 0 0 40px 12px color-mix(in srgb, var(--orbit-color) 12%, transparent), inset 0 0 42px 3px color-mix(in srgb, var(--orbit-color) 20%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 32px 9px color-mix(in srgb, var(--orbit-color) 38%, transparent), 0 0 54px 18px color-mix(in srgb, var(--orbit-color) 21%, transparent), inset 0 0 54px 5px color-mix(in srgb, var(--orbit-color) 34%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbital-cluster-ring-path,
+  .orbital-cluster-vehicle-dot { animation: none; }
+  .orbital-cluster-vehicle,
+  .orbital-cluster-tooltip { transition: none; }
+}

@@ -1,9 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import type { Feature, Point } from 'geojson'
 import * as mapboxgl from 'mapbox-gl'
 import { Vehicle } from '../data/vehicles'
 import { MAPBOX_TOKEN } from '../config/mapbox'
 import { getVehicleMapColor, type MapLegendConfig } from '../utils/mapLegend'
+import { useLanguage } from '../contexts/LanguageContext'
+import VehicleClusterMarker, { getOrbitalClusterSize, type OrbitingClusterMember } from './VehicleClusterMarker'
+import '../styles/orbital-vehicle-cluster.css'
+import {
+  createVehicleClusterData,
+  getVehicleClusterBuckets,
+  getVehicleClusterProperties,
+  getVehicleClusterSummary,
+  VEHICLE_CLUSTER_LAYER_ID,
+  VEHICLE_CLUSTER_SOURCE_ID,
+  type VehicleClusterSummary,
+} from '../utils/vehicleClustering'
 
 // ── Map style presets ─────────────────────────────────────────────────────────
 type MapStyle = 'streets' | 'satellite' | 'dark' | 'terrain'
@@ -15,7 +29,7 @@ const STYLES: Record<MapStyle, { url: string; label: string }> = {
 }
 const STYLE_ORDER: MapStyle[] = ['streets', 'satellite', 'dark', 'terrain']
 const RIYADH_CENTER: [number, number] = [46.6753, 24.7136]
-const DEFAULT_ZOOM = 13
+const DEFAULT_ZOOM = 8
 
 // ── Route waypoints ───────────────────────────────────────────────────────────
 const VEHICLE_ROUTES: Record<string, { out: [number, number][]; ret?: [number, number][] }> = {
@@ -174,6 +188,38 @@ ${arrow}
 // ── Route layer helpers ───────────────────────────────────────────────────────
 const SRC_OUT = 'fleet-route-out'
 const SRC_RET = 'fleet-route-ret'
+const MAX_CLUSTER_BUCKETS = 64
+const CLUSTER_MAX_ZOOM = 12
+
+type ClusterMarkerEntry = {
+  marker: mapboxgl.Marker
+  root: Root
+  element: HTMLDivElement
+  summary: VehicleClusterSummary
+  members: OrbitingClusterMember[]
+  renderSignature: string
+}
+
+function ensureVehicleClusterSource(map: mapboxgl.Map) {
+  if (!map.getSource(VEHICLE_CLUSTER_SOURCE_ID)) {
+    map.addSource(VEHICLE_CLUSTER_SOURCE_ID, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+      cluster: true,
+      clusterRadius: 84,
+      clusterMaxZoom: CLUSTER_MAX_ZOOM,
+      clusterProperties: getVehicleClusterProperties(MAX_CLUSTER_BUCKETS) as any,
+    })
+  }
+  if (!map.getLayer(VEHICLE_CLUSTER_LAYER_ID)) {
+    map.addLayer({
+      id: VEHICLE_CLUSTER_LAYER_ID,
+      type: 'circle',
+      source: VEHICLE_CLUSTER_SOURCE_ID,
+      paint: { 'circle-radius': 1, 'circle-opacity': 0, 'circle-stroke-opacity': 0 },
+    })
+  }
+}
 
 function geoEmpty() { return { type: 'FeatureCollection' as const, features: [] as never[] } }
 function geoLine(coords: [number, number][]) {
@@ -277,9 +323,17 @@ interface Props {
 const ANIM_SPEED = 1 / 20000 // fraction of route per ms → full route in ~20 s
 
 export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute, onVehicleSelect, onMapClick, darkMode, panelInlineOffset, mapLegend }: Props) {
+  const { lang } = useLanguage()
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<mapboxgl.Map | null>(null)
   const markersRef    = useRef(new Map<string, mapboxgl.Marker>())
+  const clusterMarkersRef = useRef(new Map<number, ClusterMarkerEntry>())
+  const currentPositionsRef = useRef(new Map<string, [number, number]>())
+  const clusterAnchorPositionsRef = useRef(new Map<string, [number, number]>())
+  const clusterSourceDataSignatureRef = useRef('')
+  const clusterMembershipSignatureRef = useRef('')
+  const clusterDataRevisionRef = useRef(0)
+  const hiddenClusterVehicleIdsRef = useRef(new Set<string>())
   const onSelectRef   = useRef(onVehicleSelect)
   onSelectRef.current = onVehicleSelect
   const onMapClickRef = useRef(onMapClick)
@@ -294,11 +348,15 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
   vehiclesRef.current = vehicles
   const darkModeRef = useRef(darkMode)
   darkModeRef.current = darkMode
+  const mapLegendRef = useRef(mapLegend)
+  mapLegendRef.current = mapLegend
+  const langRef = useRef(lang)
+  langRef.current = lang
 
   const [mapLoaded,     setMapLoaded]     = useState(false)
   const [zoom,          setZoom]          = useState(DEFAULT_ZOOM)
   const [is3D,          setIs3D]          = useState(false)
-  const [activeStyle,   setActiveStyle]   = useState<MapStyle>('streets')
+  const [activeStyle,   setActiveStyle]   = useState<MapStyle>(darkMode ? 'dark' : 'streets')
   const [showStyleMenu, setShowStyleMenu] = useState(false)
   const [snappedRoutes, setSnappedRoutes] = useState<SnappedRoutes>({})
 
@@ -309,7 +367,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: STYLES.streets.url,
+      style: STYLES[darkMode ? 'dark' : 'streets'].url,
       accessToken: MAPBOX_TOKEN,
       center: RIYADH_CENTER,
       zoom: DEFAULT_ZOOM,
@@ -319,7 +377,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     })
 
     mapRef.current = map
-    map.on('load', () => { ensureRouteLayers(map); setMapLoaded(true) })
+    map.on('load', () => { ensureRouteLayers(map); ensureVehicleClusterSource(map); setMapLoaded(true) })
     map.on('zoom', () => setZoom(Math.round(map.getZoom())))
     map.on('click', () => onMapClickRef.current())
     map.on('dragstart', () => document.body.classList.add('is-map-dragging'))
@@ -329,6 +387,8 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       document.body.classList.remove('is-map-dragging')
       markersRef.current.forEach(m => m.remove())
       markersRef.current.clear()
+      clusterMarkersRef.current.forEach(({ marker, root }) => { root.unmount(); marker.remove() })
+      clusterMarkersRef.current.clear()
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
       map.remove()
       mapRef.current = null
@@ -381,6 +441,37 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     })
   }, [vehicles])
 
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current) return
+    const map = mapRef.current
+    ensureVehicleClusterSource(map)
+    const currentIds = new Set(vehicles.map(vehicle => vehicle.id))
+    vehicles.forEach(vehicle => {
+      if (!clusterAnchorPositionsRef.current.has(vehicle.id)) {
+        clusterAnchorPositionsRef.current.set(vehicle.id, [vehicle.lng, vehicle.lat])
+      }
+      if (vehicle.status !== 'moving' || !currentPositionsRef.current.has(vehicle.id)) {
+        currentPositionsRef.current.set(vehicle.id, [vehicle.lng, vehicle.lat])
+      }
+    })
+    currentPositionsRef.current.forEach((_, id) => { if (!currentIds.has(id)) currentPositionsRef.current.delete(id) })
+    clusterAnchorPositionsRef.current.forEach((_, id) => { if (!currentIds.has(id)) clusterAnchorPositionsRef.current.delete(id) })
+    const source = map.getSource(VEHICLE_CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
+    if (source) {
+      const data = createVehicleClusterData(vehicles, mapLegend, clusterAnchorPositionsRef.current)
+      const signature = JSON.stringify(data.features.map(feature => [
+        feature.id,
+        feature.geometry.coordinates,
+        feature.properties.bucketIndex,
+      ]))
+      if (signature !== clusterSourceDataSignatureRef.current) {
+        source.setData(data)
+        clusterSourceDataSignatureRef.current = signature
+        clusterDataRevisionRef.current += 1
+      }
+    }
+  }, [vehicles, mapLegend, mapLoaded])
+
   // ── RAF animation loop: position + bearing arrow update ───────────────────
   // Moving vehicles are interpolated along their road-snapped route.
   // The bearing arrow is updated via DOM mutation (querySelector on the marker
@@ -403,6 +494,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
         animProgRef.current[v.id] = prog
 
         const pos     = interpolateRoute(route, prog)
+        currentPositionsRef.current.set(v.id, pos)
         const geoBear = bearingAt(route, prog)
 
         // SVG arrow rotation: geographic bearing corrected for map rotation
@@ -471,6 +563,219 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     })
   }, [vehicles, selectedVehicle, mapLoaded, darkMode, mapLegend])
 
+  // Replace overlapping pins with interactive orbital summaries at cluster zooms.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+
+    let lastSyncAt = 0
+    let syncFrame = 0
+
+    const restoreVehicleMarkers = () => {
+      hiddenClusterVehicleIdsRef.current.forEach(id => {
+        const marker = markersRef.current.get(id)
+        if (!marker) return
+        marker.getElement().style.visibility = ''
+        marker.getElement().style.pointerEvents = ''
+        marker.getElement().removeAttribute('aria-hidden')
+      })
+      hiddenClusterVehicleIdsRef.current.clear()
+    }
+
+    const applyHiddenVehicles = (ids: Set<string>) => {
+      hiddenClusterVehicleIdsRef.current.forEach(id => {
+        if (ids.has(id)) return
+        const marker = markersRef.current.get(id)
+        if (!marker) return
+        marker.getElement().style.visibility = ''
+        marker.getElement().style.pointerEvents = ''
+        marker.getElement().removeAttribute('aria-hidden')
+      })
+      ids.forEach(id => {
+        if (hiddenClusterVehicleIdsRef.current.has(id)) return
+        const marker = markersRef.current.get(id)
+        if (!marker) return
+        marker.getElement().style.visibility = 'hidden'
+        marker.getElement().style.pointerEvents = 'none'
+        marker.getElement().setAttribute('aria-hidden', 'true')
+        hiddenClusterVehicleIdsRef.current.add(id)
+      })
+      hiddenClusterVehicleIdsRef.current = ids
+    }
+
+    const renderClusterEntry = (entry: ClusterMarkerEntry) => {
+      const vehicleById = new Map(vehiclesRef.current.map(vehicle => [vehicle.id, vehicle]))
+      entry.members = entry.members.map(member => ({
+        ...member,
+        vehicle: vehicleById.get(member.vehicle.id) ?? member.vehicle,
+      }))
+      const signature = JSON.stringify({
+        lang: langRef.current,
+        count: entry.summary.count,
+        slices: entry.summary.slices.map(slice => [slice.key, slice.label, slice.color, slice.count]),
+        members: entry.members.map(({ vehicle, bucketIndex }) => [vehicle.id, bucketIndex, vehicle.name, vehicle.plate, vehicle.status, vehicle.telemetry.towing, vehicle.speed, vehicle.location]),
+      })
+      if (entry.renderSignature === signature) return
+      entry.renderSignature = signature
+      const size = getOrbitalClusterSize(entry.summary.slices.length)
+      entry.element.style.width = `${size}px`
+      entry.element.style.height = `${size}px`
+      entry.root.render(
+        <VehicleClusterMarker
+          count={entry.summary.count}
+          slices={entry.summary.slices}
+          members={entry.members}
+          lang={langRef.current}
+          onClusterClick={() => {
+            const current = clusterMarkersRef.current.get(entry.summary.clusterId)
+            if (!current) return
+            const source = map.getSource(VEHICLE_CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
+            source?.getClusterExpansionZoom(current.summary.clusterId, (error, expansionZoom) => {
+              if (error || !Number.isFinite(expansionZoom)) return
+              map.easeTo({ center: current.summary.coordinates, zoom: Math.min(expansionZoom, 18), duration: 620 })
+            })
+          }}
+          onVehicleSelect={vehicle => {
+            const position = currentPositionsRef.current.get(vehicle.id) ?? [vehicle.lng, vehicle.lat]
+            onSelectRef.current(vehicle)
+            map.easeTo({ center: position, zoom: Math.max(14, map.getZoom()), duration: 620 })
+          }}
+        />,
+      )
+    }
+
+    const syncClusterMarkers = () => {
+      if (!map.isStyleLoaded() || !map.getSource(VEHICLE_CLUSTER_SOURCE_ID)) return
+
+      let features: Feature<Point>[] = []
+      if (map.getZoom() <= CLUSTER_MAX_ZOOM) {
+        try {
+          features = map.querySourceFeatures(VEHICLE_CLUSTER_SOURCE_ID)
+            .filter((feature): feature is Feature<Point> =>
+              feature.geometry?.type === 'Point' && Boolean(feature.properties?.cluster),
+            )
+        } catch {
+          // Mapbox can rebuild source tiles during a style change.
+          return
+        }
+      }
+
+      const unique = new Map<number, Feature<Point>>()
+      features.forEach(feature => {
+        const id = Number(feature.properties?.cluster_id)
+        if (Number.isFinite(id)) unique.set(id, feature)
+      })
+      const clusterBuckets = getVehicleClusterBuckets(vehiclesRef.current, mapLegendRef.current)
+      const summaries = [...unique.values()]
+        .map(feature => getVehicleClusterSummary(feature, vehiclesRef.current, mapLegendRef.current, clusterBuckets))
+        .filter((summary): summary is NonNullable<typeof summary> =>
+          summary !== null && map.getBounds().contains(summary.coordinates),
+        )
+      const activeIds = new Set(summaries.map(summary => summary.clusterId))
+
+      clusterMarkersRef.current.forEach((entry, id) => {
+        if (!activeIds.has(id)) {
+          entry.root.unmount()
+          entry.marker.remove()
+          clusterMarkersRef.current.delete(id)
+        }
+      })
+
+      summaries.forEach(summary => {
+        let entry = clusterMarkersRef.current.get(summary.clusterId)
+        if (!entry) {
+          const element = document.createElement('div')
+          element.className = 'orbital-cluster-marker'
+          element.style.width = `${getOrbitalClusterSize(summary.slices.length)}px`
+          element.style.height = `${getOrbitalClusterSize(summary.slices.length)}px`
+          const root = createRoot(element)
+          const marker = new mapboxgl.Marker({ element, anchor: 'center' })
+            .setLngLat(summary.coordinates)
+            .addTo(map)
+          entry = { marker, root, element, summary, members: [], renderSignature: '' }
+          clusterMarkersRef.current.set(summary.clusterId, entry)
+        } else {
+          entry.summary = summary
+          entry.marker.setLngLat(summary.coordinates)
+        }
+        renderClusterEntry(entry)
+      })
+
+      const membershipSignature = `${clusterDataRevisionRef.current}:${JSON.stringify(summaries.map(summary => [summary.clusterId, summary.count]))}`
+      if (membershipSignature === clusterMembershipSignatureRef.current) return
+      clusterMembershipSignatureRef.current = membershipSignature
+
+      const nextHidden = new Set<string>()
+      if (!summaries.length) {
+        applyHiddenVehicles(nextHidden)
+        return
+      }
+
+      let pending = summaries.length
+      const finish = () => {
+        pending -= 1
+        if (pending === 0 && membershipSignature === clusterMembershipSignatureRef.current) {
+          applyHiddenVehicles(nextHidden)
+        }
+      }
+      summaries.forEach(summary => {
+        const source = map.getSource(VEHICLE_CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
+        if (!source) { finish(); return }
+        source.getClusterLeaves(summary.clusterId, summary.count, 0, (error, leaves) => {
+          const entry = clusterMarkersRef.current.get(summary.clusterId)
+          const vehicleById = new Map(vehiclesRef.current.map(vehicle => [vehicle.id, vehicle]))
+          const members: OrbitingClusterMember[] = []
+          if (!error) leaves.forEach(leaf => {
+            const id = leaf.properties?.vehicleId
+            const bucketIndex = Number(leaf.properties?.bucketIndex)
+            if (typeof id !== 'string') return
+            nextHidden.add(id)
+            const vehicle = vehicleById.get(id)
+            if (vehicle && Number.isFinite(bucketIndex)) members.push({ vehicle, bucketIndex })
+          })
+          if (entry) {
+            entry.members = members
+            renderClusterEntry(entry)
+          }
+          finish()
+        })
+      })
+    }
+
+    const requestSync = () => {
+      const now = performance.now()
+      if (syncFrame || syncTimer !== null) return
+      const delay = Math.max(0, 110 - (now - lastSyncAt))
+      syncTimer = window.setTimeout(() => {
+        syncTimer = null
+        lastSyncAt = performance.now()
+        syncFrame = requestAnimationFrame(() => {
+          syncFrame = 0
+          syncClusterMarkers()
+        })
+      }, delay)
+    }
+
+    let syncTimer: number | null = null
+    map.on('render', requestSync)
+    map.on('moveend', requestSync)
+    map.on('sourcedata', requestSync)
+    requestSync()
+
+    return () => {
+      map.off('render', requestSync)
+      map.off('moveend', requestSync)
+      map.off('sourcedata', requestSync)
+      if (syncTimer !== null) window.clearTimeout(syncTimer)
+      if (syncFrame) cancelAnimationFrame(syncFrame)
+      restoreVehicleMarkers()
+    }
+  }, [mapLoaded])
+
+  useEffect(() => {
+    if (mapLoaded) mapRef.current?.triggerRepaint()
+  }, [lang, mapLoaded])
+
   // ── Route + fly-to on vehicle select ─────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return
@@ -497,6 +802,18 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     map.setStyle(STYLES[style].url, { diff: false } as any)
     map.once('style.load', () => {
       ensureRouteLayers(map)
+      ensureVehicleClusterSource(map)
+      const source = map.getSource(VEHICLE_CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
+      if (source) {
+        const data = createVehicleClusterData(vehiclesRef.current, mapLegendRef.current, clusterAnchorPositionsRef.current)
+        source.setData(data)
+        clusterSourceDataSignatureRef.current = JSON.stringify(data.features.map(feature => [
+          feature.id,
+          feature.geometry.coordinates,
+          feature.properties.bucketIndex,
+        ]))
+        clusterDataRevisionRef.current += 1
+      }
       updateRouteLayers(map, stateRef.current.showRoute ? stateRef.current.vehicle : null, snappedRef.current)
       if (stateRef.current.is3D) ensure3DBuildings(map)
     })

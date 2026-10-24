@@ -9,20 +9,10 @@ interface ThemeContextType {
   setPaletteId: (palette: PaletteId) => void
 }
 
-const MODE_KEY = 'fleetview-color-mode'
-const PALETTE_KEY = 'fleetview-palette'
-
-function initialMode(): boolean {
-  if (typeof window === 'undefined') return true
-  const savedMode = window.localStorage.getItem(MODE_KEY)
-  return savedMode === null ? true : savedMode === 'dark'
-}
-
-function initialPalette(): PaletteId {
-  if (typeof window === 'undefined') return 'tripmonitor'
-  const savedPalette = window.localStorage.getItem(PALETTE_KEY)
-  return savedPalette === null ? 'tripmonitor' : savedPalette === 'tripmonitor' ? 'tripmonitor' : 'current'
-}
+// TEMP: Force the startup theme while user preference persistence is paused.
+// TODO: Restore reading and writing the fleetview-color-mode and fleetview-palette keys when user settings are ready.
+const INITIAL_DARK_MODE = true
+const INITIAL_PALETTE: PaletteId = 'tripmonitor'
 
 const ThemeContext = createContext<ThemeContextType>({
   isDark: true,
@@ -32,15 +22,13 @@ const ThemeContext = createContext<ThemeContextType>({
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [isDark, setIsDark] = useState(initialMode)
-  const [paletteId, setPaletteId] = useState<PaletteId>(initialPalette)
+  const [isDark, setIsDark] = useState(INITIAL_DARK_MODE)
+  const [paletteId, setPaletteId] = useState<PaletteId>(INITIAL_PALETTE)
 
   useEffect(() => {
     const root = document.documentElement
     root.classList.toggle('dark', isDark)
     root.dataset.palette = paletteId
-    window.localStorage.setItem(MODE_KEY, isDark ? 'dark' : 'light')
-    window.localStorage.setItem(PALETTE_KEY, paletteId)
   }, [isDark, paletteId])
 
   return (

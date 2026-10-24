@@ -463,6 +463,11 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
               <span style={{ fontSize: 12, fontWeight: 650 }}>{t(`status_${status}`)}</span>
               <span style={{ marginInlineStart: 'auto', width: 9, height: 9, borderRadius: '50%', background: config.statusColors[status], boxShadow: `0 0 7px ${config.statusColors[status]}88` }}/>
             </div>)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 8px', background: 'var(--secondary)', borderRadius: 8 }}>
+              <ColorPickerField value={config.statusColors.towed} label={`${t('status_towed')} · ${t('map_range_color')}`} onChange={color => onChange({ ...config, statusColors: { ...config.statusColors, towed: color } })}/>
+              <span style={{ fontSize: 12, fontWeight: 650 }}>{t('status_towed')}</span>
+              <span aria-hidden="true" style={{ marginInlineStart: 'auto', width: 9, height: 9, borderRadius: '50%', background: config.statusColors.towed, boxShadow: `0 0 7px ${config.statusColors.towed}88` }}/>
+            </div>
           </div>
         ) : <>
           <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700 }}>

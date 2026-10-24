@@ -10,7 +10,7 @@ const mapDashboardStrings = {
     nav_alerts: 'Alerts', nav_settings: 'Settings',
     nav_collapse: 'Collapse', expand_sidebar: 'Expand sidebar', collapse_sidebar: 'Collapse sidebar',
     // Status
-    status_moving: 'Moving', status_idle: 'Idle', status_offline: 'Offline',
+    status_moving: 'Moving', status_idle: 'Idle', status_offline: 'Offline', status_towed: 'Towed',
     // TopBar
     search_placeholder: 'Search vehicles, plates, drivers…',
     filter_all: 'All', filter_moving: 'Moving', filter_idle: 'Idle', filter_offline: 'Offline',
@@ -168,7 +168,7 @@ const mapDashboardStrings = {
     nav_map: 'الخريطة الحية', nav_vehicles: 'المركبات', nav_reports: 'التقارير',
     nav_alerts: 'التنبيهات', nav_settings: 'الإعدادات',
     nav_collapse: 'طي', expand_sidebar: 'توسيع الشريط الجانبي', collapse_sidebar: 'طي الشريط الجانبي',
-    status_moving: 'متحرك', status_idle: 'خامل', status_offline: 'غير متصل',
+    status_moving: 'متحرك', status_idle: 'خامل', status_offline: 'غير متصل', status_towed: 'قيد السحب',
     search_placeholder: 'ابحث عن مركبات، لوحات، سائقين…',
     filter_all: 'الكل', filter_moving: 'متحرك', filter_idle: 'خامل', filter_offline: 'غير متصل',
     n_active: 'نشط', n_results: 'نتائج', n_result: 'نتيجة',

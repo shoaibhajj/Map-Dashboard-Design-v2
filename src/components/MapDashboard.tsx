@@ -13,7 +13,7 @@ import BottomSheet from './BottomSheet'
 import { Vehicle, vehicles as initialVehicles } from '../data/vehicles'
 import { FleetDriver, FleetGroup, initialFleetGroups } from '../data/fleetEntities'
 import { RightCard, FABType, FleetFilter, defaultFilter } from '../types'
-import { readMapLegendConfig, saveMapLegendConfig, type MapLegendConfig } from '../utils/mapLegend'
+import { DEFAULT_MAP_LEGEND, type MapLegendConfig } from '../utils/mapLegend'
 import { matchesGroupFilter } from '../utils/fleetGroups'
 
 interface Props {
@@ -39,14 +39,14 @@ export default function MapDashboard({ darkMode, onToggleDark }: Props) {
   const [addModal, setAddModal] = useState<'vehicle' | 'group' | 'driver' | null>(null)
   const [fleetGroups, setFleetGroups] = useState<FleetGroup[]>(initialFleetGroups)
   const [, setFleetDrivers] = useState<FleetDriver[]>([])
-  const [vehiclesPanelOpen, setVehiclesPanelOpen] = useState(true)
+  const [vehiclesPanelOpen, setVehiclesPanelOpen] = useState(false)
   const [vehiclesPanelCompact, setVehiclesPanelCompact] = useState(false)
-  const [mapLegend, setMapLegend] = useState<MapLegendConfig>(readMapLegendConfig)
+  // TEMP: Start with defaults while saved map preferences are paused.
+  // TODO: Restore readMapLegendConfig/saveMapLegendConfig when user settings are ready.
+  const [mapLegend, setMapLegend] = useState<MapLegendConfig>(DEFAULT_MAP_LEGEND)
   const [rightCards, setRightCards] = useState<RightCard[]>([])
   const [filter, setFilter] = useState<FleetFilter>(defaultFilter)
   const [fleetDrawerHeight, setFleetDrawerHeight] = useState(0)
-
-  useEffect(() => saveMapLegendConfig(mapLegend), [mapLegend])
 
   const handleVehicleSelect = useCallback((vehicle: Vehicle) => {
     setSelectedVehicle(vehicle)
