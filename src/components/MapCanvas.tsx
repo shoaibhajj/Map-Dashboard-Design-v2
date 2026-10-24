@@ -29,7 +29,7 @@ const STYLES: Record<MapStyle, { url: string; label: string }> = {
 }
 const STYLE_ORDER: MapStyle[] = ['streets', 'satellite', 'dark', 'terrain']
 const RIYADH_CENTER: [number, number] = [46.6753, 24.7136]
-const DEFAULT_ZOOM = 8
+const DEFAULT_ZOOM = 9
 
 // ── Route waypoints ───────────────────────────────────────────────────────────
 const VEHICLE_ROUTES: Record<string, { out: [number, number][]; ret?: [number, number][] }> = {
