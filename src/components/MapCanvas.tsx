@@ -11,6 +11,9 @@ import VehicleClusterMarker, { getOrbitalClusterSize, type OrbitingClusterMember
 import '../styles/orbital-vehicle-cluster.css'
 import {
   createVehicleClusterData,
+  createVehicleClusterPartitions,
+  getClusterRadiusPixels,
+  getVehicleClusterMaxZoom,
   getVehicleClusterBuckets,
   getVehicleClusterProperties,
   getVehicleClusterSummary,
@@ -189,36 +192,57 @@ ${arrow}
 const SRC_OUT = 'fleet-route-out'
 const SRC_RET = 'fleet-route-ret'
 const MAX_CLUSTER_BUCKETS = 64
-const CLUSTER_MAX_ZOOM = 12
 
 type ClusterMarkerEntry = {
+  key: string
+  sourceId: string
+  clusterId: number
   marker: mapboxgl.Marker
   root: Root
   element: HTMLDivElement
   summary: VehicleClusterSummary
   members: OrbitingClusterMember[]
+  currentCoordinates: [number, number]
+  targetCoordinates: [number, number]
   renderSignature: string
 }
 
-function ensureVehicleClusterSource(map: mapboxgl.Map) {
-  if (!map.getSource(VEHICLE_CLUSTER_SOURCE_ID)) {
-    map.addSource(VEHICLE_CLUSTER_SOURCE_ID, {
+function getClusterFeatureSignature(data: ReturnType<typeof createVehicleClusterData>) {
+  return JSON.stringify(data.features.map(feature => [
+    feature.id,
+    feature.geometry.coordinates,
+    feature.properties.bucketIndex,
+  ]))
+}
+
+function getClusterPositionSnapshot(data: ReturnType<typeof createVehicleClusterData>) {
+  return new Map(data.features.map(feature => [
+    feature.properties.vehicleId,
+    [feature.geometry.coordinates[0], feature.geometry.coordinates[1]] as [number, number],
+  ]))
+}
+
+function ensureVehicleClusterSource(map: mapboxgl.Map, sourceId = VEHICLE_CLUSTER_SOURCE_ID, clusterRadius = 84, clusterMaxZoom = 12) {
+  const layerId = `${VEHICLE_CLUSTER_LAYER_ID}-${sourceId.slice(VEHICLE_CLUSTER_SOURCE_ID.length).replace(/^-/, '') || 'default'}`
+  if (!map.getSource(sourceId)) {
+    map.addSource(sourceId, {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] },
       cluster: true,
-      clusterRadius: 84,
-      clusterMaxZoom: CLUSTER_MAX_ZOOM,
+      clusterRadius,
+      clusterMaxZoom,
       clusterProperties: getVehicleClusterProperties(MAX_CLUSTER_BUCKETS) as any,
     })
   }
-  if (!map.getLayer(VEHICLE_CLUSTER_LAYER_ID)) {
+  if (!map.getLayer(layerId)) {
     map.addLayer({
-      id: VEHICLE_CLUSTER_LAYER_ID,
+      id: layerId,
       type: 'circle',
-      source: VEHICLE_CLUSTER_SOURCE_ID,
+      source: sourceId,
       paint: { 'circle-radius': 1, 'circle-opacity': 0, 'circle-stroke-opacity': 0 },
     })
   }
+  return sourceId
 }
 
 function geoEmpty() { return { type: 'FeatureCollection' as const, features: [] as never[] } }
@@ -259,7 +283,7 @@ function ensureRouteLayers(map: mapboxgl.Map) {
 
 function updateRouteLayers(map: mapboxgl.Map, vehicle: Vehicle | null, snapped: SnappedRoutes) {
   const id   = vehicle?.id ?? ''
-  const outC = snapped[id]       ?? VEHICLE_ROUTES[id]?.out ?? []
+  const outC = snapped[id]       ?? VEHICLE_ROUTES[id]?.out ?? vehicle?.mapRoute ?? []
   const retC = snapped[`${id}-ret`] ?? VEHICLE_ROUTES[id]?.ret ?? []
   ;(map.getSource(SRC_OUT) as mapboxgl.GeoJSONSource | undefined)?.setData(
     (outC.length >= 2 ? geoLine(outC) : geoEmpty()) as any
@@ -327,11 +351,13 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<mapboxgl.Map | null>(null)
   const markersRef    = useRef(new Map<string, mapboxgl.Marker>())
-  const clusterMarkersRef = useRef(new Map<number, ClusterMarkerEntry>())
+  const clusterMarkersRef = useRef(new Map<string, ClusterMarkerEntry>())
   const currentPositionsRef = useRef(new Map<string, [number, number]>())
-  const clusterAnchorPositionsRef = useRef(new Map<string, [number, number]>())
-  const clusterSourceDataSignatureRef = useRef('')
-  const clusterMembershipSignatureRef = useRef('')
+  const clusterSourceDataSignatureRef = useRef(new Map<string, string>())
+  const activeClusterSourceIdsRef = useRef<string[]>([])
+  const clusterSourceSyncAtRef = useRef(0)
+  const clusterSourceCheckAtRef = useRef(0)
+  const clusterSourcePositionSnapshotRef = useRef(new Map<string, [number, number]>())
   const clusterDataRevisionRef = useRef(0)
   const hiddenClusterVehicleIdsRef = useRef(new Set<string>())
   const onSelectRef   = useRef(onVehicleSelect)
@@ -360,6 +386,44 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
   const [showStyleMenu, setShowStyleMenu] = useState(false)
   const [snappedRoutes, setSnappedRoutes] = useState<SnappedRoutes>({})
 
+  const syncVehicleClusterSources = (map: mapboxgl.Map, vehicleList: Vehicle[], legend: MapLegendConfig, zoomLevel: number) => {
+    const latitude = 24.7
+    const radius = getClusterRadiusPixels(zoomLevel, latitude, legend)
+    const radiusKey = Math.round(radius)
+    const maxZoom = getVehicleClusterMaxZoom(legend)
+    const partitions = createVehicleClusterPartitions(vehicleList, legend, zoomLevel, currentPositionsRef.current)
+    const activeIds: string[] = []
+    let changed = false
+    partitions.forEach(partition => {
+      const sourceId = ensureVehicleClusterSource(map, `${VEHICLE_CLUSTER_SOURCE_ID}-${partition.id}-r${radiusKey}-m${maxZoom}`, radius, maxZoom)
+      activeIds.push(sourceId)
+      const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined
+      const signature = getClusterFeatureSignature(partition.data)
+      if (source && clusterSourceDataSignatureRef.current.get(sourceId) !== signature) {
+        source.setData(partition.data)
+        clusterSourceDataSignatureRef.current.set(sourceId, signature)
+        changed = true
+      }
+    })
+    const active = new Set(activeIds)
+    activeClusterSourceIdsRef.current = activeIds
+    const styleSources = map.getStyle()?.sources ?? {}
+    Object.keys(styleSources).filter(id => id.startsWith(`${VEHICLE_CLUSTER_SOURCE_ID}-`) && !active.has(id)).forEach(sourceId => {
+      const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined
+      if (source && clusterSourceDataSignatureRef.current.get(sourceId) !== 'empty') {
+        source.setData({ type: 'FeatureCollection', features: [] })
+        clusterSourceDataSignatureRef.current.set(sourceId, 'empty')
+        changed = true
+      }
+    })
+    if (changed) {
+      const combined = { type: 'FeatureCollection', features: partitions.flatMap(partition => partition.data.features) } as ReturnType<typeof createVehicleClusterData>
+      clusterSourcePositionSnapshotRef.current = getClusterPositionSnapshot(combined)
+      clusterSourceSyncAtRef.current = performance.now()
+      clusterDataRevisionRef.current += 1
+    }
+  }
+
   // ── Initialise Mapbox ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -377,7 +441,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     })
 
     mapRef.current = map
-    map.on('load', () => { ensureRouteLayers(map); ensureVehicleClusterSource(map); setMapLoaded(true) })
+    map.on('load', () => { ensureRouteLayers(map); setMapLoaded(true) })
     map.on('zoom', () => setZoom(Math.round(map.getZoom())))
     map.on('click', () => onMapClickRef.current())
     map.on('dragstart', () => document.body.classList.add('is-map-dragging'))
@@ -444,33 +508,15 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
   useEffect(() => {
     if (!mapLoaded || !mapRef.current) return
     const map = mapRef.current
-    ensureVehicleClusterSource(map)
     const currentIds = new Set(vehicles.map(vehicle => vehicle.id))
     vehicles.forEach(vehicle => {
-      if (!clusterAnchorPositionsRef.current.has(vehicle.id)) {
-        clusterAnchorPositionsRef.current.set(vehicle.id, [vehicle.lng, vehicle.lat])
-      }
       if (vehicle.status !== 'moving' || !currentPositionsRef.current.has(vehicle.id)) {
         currentPositionsRef.current.set(vehicle.id, [vehicle.lng, vehicle.lat])
       }
     })
     currentPositionsRef.current.forEach((_, id) => { if (!currentIds.has(id)) currentPositionsRef.current.delete(id) })
-    clusterAnchorPositionsRef.current.forEach((_, id) => { if (!currentIds.has(id)) clusterAnchorPositionsRef.current.delete(id) })
-    const source = map.getSource(VEHICLE_CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
-    if (source) {
-      const data = createVehicleClusterData(vehicles, mapLegend, clusterAnchorPositionsRef.current)
-      const signature = JSON.stringify(data.features.map(feature => [
-        feature.id,
-        feature.geometry.coordinates,
-        feature.properties.bucketIndex,
-      ]))
-      if (signature !== clusterSourceDataSignatureRef.current) {
-        source.setData(data)
-        clusterSourceDataSignatureRef.current = signature
-        clusterDataRevisionRef.current += 1
-      }
-    }
-  }, [vehicles, mapLegend, mapLoaded])
+    syncVehicleClusterSources(map, vehicles, mapLegend, zoom)
+  }, [vehicles, mapLegend, mapLoaded, zoom])
 
   // ── RAF animation loop: position + bearing arrow update ───────────────────
   // Moving vehicles are interpolated along their road-snapped route.
@@ -486,7 +532,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       const mapBearing = mapRef.current?.getBearing() ?? 0
 
       vehiclesRef.current.filter(v => v.status === 'moving').forEach(v => {
-        const route = snappedRef.current[v.id] ?? VEHICLE_ROUTES[v.id]?.out
+        const route = snappedRef.current[v.id] ?? VEHICLE_ROUTES[v.id]?.out ?? v.mapRoute
         if (!route || route.length < 2) return
 
         let prog = animProgRef.current[v.id] ?? 0
@@ -506,6 +552,44 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
           marker.setLngLat(pos)
           const arrowEl = marker.getElement().querySelector('.bearing-arrow')
           if (arrowEl) arrowEl.setAttribute('transform', `rotate(${svgRot.toFixed(1)},28,28)`)
+        }
+      })
+
+      // Keep cluster membership tied to live GPS positions so vehicles leave
+      // their current ring when they move beyond the clustering radius.
+      const currentMap = mapRef.current
+      if (currentMap && now - clusterSourceCheckAtRef.current >= 250) {
+        clusterSourceCheckAtRef.current = now
+        const movedEnoughOnScreen = vehiclesRef.current.some(vehicle => {
+          if (vehicle.status !== 'moving') return false
+          const previous = clusterSourcePositionSnapshotRef.current.get(vehicle.id)
+          const current = currentPositionsRef.current.get(vehicle.id)
+          if (!previous || !current) return true
+          const from = currentMap.project(previous)
+          const to = currentMap.project(current)
+          return Math.hypot(to.x - from.x, to.y - from.y) >= 3
+        })
+        const updateIsDue = now - clusterSourceSyncAtRef.current >= 700
+        if (movedEnoughOnScreen || updateIsDue) {
+          syncVehicleClusterSources(currentMap, vehiclesRef.current, mapLegendRef.current, currentMap.getZoom())
+          clusterSourceSyncAtRef.current = now
+        }
+      }
+
+      const centerEase = 1 - Math.exp(-dt / 180)
+      clusterMarkersRef.current.forEach(entry => {
+        const [currentLng, currentLat] = entry.currentCoordinates
+        const [targetLng, targetLat] = entry.targetCoordinates
+        const next: [number, number] = [
+          currentLng + (targetLng - currentLng) * centerEase,
+          currentLat + (targetLat - currentLat) * centerEase,
+        ]
+        if (Math.abs(targetLng - currentLng) > 0.000005 || Math.abs(targetLat - currentLat) > 0.000005) {
+          entry.currentCoordinates = next
+          entry.marker.setLngLat(next)
+        } else if (currentLng !== targetLng || currentLat !== targetLat) {
+          entry.currentCoordinates = [...entry.targetCoordinates]
+          entry.marker.setLngLat(entry.currentCoordinates)
         }
       })
 
@@ -543,7 +627,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
 
         const initPos: [number, number] = vehicle.status === 'moving'
           ? (() => {
-              const r = VEHICLE_ROUTES[vehicle.id]?.out
+              const r = VEHICLE_ROUTES[vehicle.id]?.out ?? vehicle.mapRoute
               return r ? interpolateRoute(r, animProgRef.current[vehicle.id] ?? 0) : [vehicle.lng, vehicle.lat]
             })()
           : [vehicle.lng, vehicle.lat]
@@ -570,6 +654,12 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
 
     let lastSyncAt = 0
     let syncFrame = 0
+    let syncTimer: number | null = null
+    let snapshotRequest = 0
+    let lastSnapshotSignature = ''
+    let emptySnapshotSince = 0
+    let emptySnapshotTimer: number | null = null
+    let nextClusterMarkerKey = 0
 
     const restoreVehicleMarkers = () => {
       hiddenClusterVehicleIdsRef.current.forEach(id => {
@@ -603,21 +693,22 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       hiddenClusterVehicleIdsRef.current = ids
     }
 
-    const renderClusterEntry = (entry: ClusterMarkerEntry) => {
+    const renderClusterEntry = (entry: ClusterMarkerEntry, zoom: number) => {
       const vehicleById = new Map(vehiclesRef.current.map(vehicle => [vehicle.id, vehicle]))
       entry.members = entry.members.map(member => ({
         ...member,
         vehicle: vehicleById.get(member.vehicle.id) ?? member.vehicle,
       }))
+      const size = getOrbitalClusterSize(entry.summary.slices.length, zoom)
       const signature = JSON.stringify({
         lang: langRef.current,
         count: entry.summary.count,
+        size,
         slices: entry.summary.slices.map(slice => [slice.key, slice.label, slice.color, slice.count]),
         members: entry.members.map(({ vehicle, bucketIndex }) => [vehicle.id, bucketIndex, vehicle.name, vehicle.plate, vehicle.status, vehicle.telemetry.towing, vehicle.speed, vehicle.location]),
       })
       if (entry.renderSignature === signature) return
       entry.renderSignature = signature
-      const size = getOrbitalClusterSize(entry.summary.slices.length)
       entry.element.style.width = `${size}px`
       entry.element.style.height = `${size}px`
       entry.root.render(
@@ -625,14 +716,13 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
           count={entry.summary.count}
           slices={entry.summary.slices}
           members={entry.members}
+          zoom={zoom}
           lang={langRef.current}
           onClusterClick={() => {
-            const current = clusterMarkersRef.current.get(entry.summary.clusterId)
-            if (!current) return
-            const source = map.getSource(VEHICLE_CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
-            source?.getClusterExpansionZoom(current.summary.clusterId, (error, expansionZoom) => {
-              if (error || !Number.isFinite(expansionZoom)) return
-              map.easeTo({ center: current.summary.coordinates, zoom: Math.min(expansionZoom, 18), duration: 620 })
+            const source = map.getSource(entry.sourceId) as mapboxgl.GeoJSONSource | undefined
+            source?.getClusterExpansionZoom(entry.clusterId, (error, expansionZoom) => {
+              if (error || typeof expansionZoom !== 'number' || !Number.isFinite(expansionZoom)) return
+              map.easeTo({ center: entry.targetCoordinates, zoom: Math.min(expansionZoom, 18), duration: 620 })
             })
           }}
           onVehicleSelect={vehicle => {
@@ -644,101 +734,210 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       )
     }
 
-    const syncClusterMarkers = () => {
-      if (!map.isStyleLoaded() || !map.getSource(VEHICLE_CLUSTER_SOURCE_ID)) return
+    const removeClusterMarkers = (entries: Map<string, ClusterMarkerEntry>) => {
+      entries.forEach(entry => {
+        entry.root.unmount()
+        entry.marker.remove()
+      })
+      entries.clear()
+    }
 
+    const syncClusterMarkers = () => {
+      if (!map.isStyleLoaded()) return
+      const sourceIds = activeClusterSourceIdsRef.current.filter(sourceId => map.getSource(sourceId))
+      if (!sourceIds.length) {
+        if (clusterMarkersRef.current.size) {
+          removeClusterMarkers(clusterMarkersRef.current)
+          applyHiddenVehicles(new Set())
+        }
+        return
+      }
+
+      const zoom = map.getZoom()
       let features: Feature<Point>[] = []
-      if (map.getZoom() <= CLUSTER_MAX_ZOOM) {
+      if (zoom <= getVehicleClusterMaxZoom(mapLegendRef.current)) {
         try {
-          features = map.querySourceFeatures(VEHICLE_CLUSTER_SOURCE_ID)
+          features = sourceIds.flatMap(sourceId => (map.querySourceFeatures(sourceId) as unknown as Feature<Point>[])
             .filter((feature): feature is Feature<Point> =>
               feature.geometry?.type === 'Point' && Boolean(feature.properties?.cluster),
-            )
+            ).map(feature => ({
+              type: 'Feature',
+              id: feature.id,
+              geometry: feature.geometry,
+              properties: { ...feature.properties, _clusterSourceId: sourceId },
+            } as Feature<Point>)))
         } catch {
           // Mapbox can rebuild source tiles during a style change.
           return
         }
       }
 
-      const unique = new Map<number, Feature<Point>>()
+      const unique = new Map<string, { feature: Feature<Point>; sourceId: string }>()
       features.forEach(feature => {
         const id = Number(feature.properties?.cluster_id)
-        if (Number.isFinite(id)) unique.set(id, feature)
+        const sourceId = String(feature.properties?._clusterSourceId ?? '')
+        if (Number.isFinite(id) && sourceId) unique.set(`${sourceId}:${id}`, { feature, sourceId })
       })
       const clusterBuckets = getVehicleClusterBuckets(vehiclesRef.current, mapLegendRef.current)
       const summaries = [...unique.values()]
-        .map(feature => getVehicleClusterSummary(feature, vehiclesRef.current, mapLegendRef.current, clusterBuckets))
-        .filter((summary): summary is NonNullable<typeof summary> =>
-          summary !== null && map.getBounds().contains(summary.coordinates),
+        .map(({ feature, sourceId }) => ({ sourceId, summary: getVehicleClusterSummary(feature, vehiclesRef.current, mapLegendRef.current, clusterBuckets) }))
+        .filter((item): item is { sourceId: string; summary: VehicleClusterSummary } =>
+          item.summary !== null && map.getBounds().contains(item.summary.coordinates),
         )
-      const activeIds = new Set(summaries.map(summary => summary.clusterId))
+      const snapshotSignature = JSON.stringify([
+        clusterDataRevisionRef.current,
+        summaries.map(summary => [
+          summary.sourceId,
+          summary.summary.clusterId,
+          summary.summary.count,
+          summary.summary.coordinates,
+          getOrbitalClusterSize(summary.summary.slices.length, zoom),
+        ]),
+      ])
+      if (snapshotSignature === lastSnapshotSignature) return
 
-      clusterMarkersRef.current.forEach((entry, id) => {
-        if (!activeIds.has(id)) {
-          entry.root.unmount()
-          entry.marker.remove()
-          clusterMarkersRef.current.delete(id)
-        }
-      })
-
-      summaries.forEach(summary => {
-        let entry = clusterMarkersRef.current.get(summary.clusterId)
-        if (!entry) {
-          const element = document.createElement('div')
-          element.className = 'orbital-cluster-marker'
-          element.style.width = `${getOrbitalClusterSize(summary.slices.length)}px`
-          element.style.height = `${getOrbitalClusterSize(summary.slices.length)}px`
-          const root = createRoot(element)
-          const marker = new mapboxgl.Marker({ element, anchor: 'center' })
-            .setLngLat(summary.coordinates)
-            .addTo(map)
-          entry = { marker, root, element, summary, members: [], renderSignature: '' }
-          clusterMarkersRef.current.set(summary.clusterId, entry)
-        } else {
-          entry.summary = summary
-          entry.marker.setLngLat(summary.coordinates)
-        }
-        renderClusterEntry(entry)
-      })
-
-      const membershipSignature = `${clusterDataRevisionRef.current}:${JSON.stringify(summaries.map(summary => [summary.clusterId, summary.count]))}`
-      if (membershipSignature === clusterMembershipSignatureRef.current) return
-      clusterMembershipSignatureRef.current = membershipSignature
-
-      const nextHidden = new Set<string>()
       if (!summaries.length) {
-        applyHiddenVehicles(nextHidden)
+        if (zoom <= getVehicleClusterMaxZoom(mapLegendRef.current)) {
+          const now = performance.now()
+          if (!emptySnapshotSince) emptySnapshotSince = now
+          if (now - emptySnapshotSince < 320) {
+            if (emptySnapshotTimer === null) {
+              emptySnapshotTimer = window.setTimeout(() => {
+                emptySnapshotTimer = null
+                lastSnapshotSignature = ''
+                requestSync()
+              }, 340)
+            }
+            return
+          }
+        }
+        emptySnapshotSince = 0
+        if (emptySnapshotTimer !== null) {
+          window.clearTimeout(emptySnapshotTimer)
+          emptySnapshotTimer = null
+        }
+        snapshotRequest += 1
+        lastSnapshotSignature = snapshotSignature
+        removeClusterMarkers(clusterMarkersRef.current)
+        applyHiddenVehicles(new Set())
         return
       }
 
-      let pending = summaries.length
-      const finish = () => {
-        pending -= 1
-        if (pending === 0 && membershipSignature === clusterMembershipSignatureRef.current) {
-          applyHiddenVehicles(nextHidden)
-        }
+      emptySnapshotSince = 0
+      if (emptySnapshotTimer !== null) {
+        window.clearTimeout(emptySnapshotTimer)
+        emptySnapshotTimer = null
       }
-      summaries.forEach(summary => {
-        const source = map.getSource(VEHICLE_CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
-        if (!source) { finish(); return }
+      lastSnapshotSignature = snapshotSignature
+      const requestId = ++snapshotRequest
+      const dataRevision = clusterDataRevisionRef.current
+      const vehicleById = new Map(vehiclesRef.current.map(vehicle => [vehicle.id, vehicle]))
+      const pendingLeaves = summaries.map(item => new Promise<{
+        summary: VehicleClusterSummary
+        sourceId: string
+        members: OrbitingClusterMember[]
+        memberIds: string[]
+        failed: boolean
+      }>(resolve => {
+        const { summary, sourceId } = item
+        const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined
+        if (!source) { resolve({ sourceId, summary, members: [], memberIds: [], failed: true }); return }
         source.getClusterLeaves(summary.clusterId, summary.count, 0, (error, leaves) => {
-          const entry = clusterMarkersRef.current.get(summary.clusterId)
-          const vehicleById = new Map(vehiclesRef.current.map(vehicle => [vehicle.id, vehicle]))
           const members: OrbitingClusterMember[] = []
-          if (!error) leaves.forEach(leaf => {
+          const memberIds: string[] = []
+          if (!error) leaves?.forEach(leaf => {
             const id = leaf.properties?.vehicleId
             const bucketIndex = Number(leaf.properties?.bucketIndex)
             if (typeof id !== 'string') return
-            nextHidden.add(id)
+            memberIds.push(id)
             const vehicle = vehicleById.get(id)
             if (vehicle && Number.isFinite(bucketIndex)) members.push({ vehicle, bucketIndex })
           })
-          if (entry) {
-            entry.members = members
-            renderClusterEntry(entry)
-          }
-          finish()
+          members.sort((a, b) => a.vehicle.id.localeCompare(b.vehicle.id))
+          resolve({ sourceId, summary, members, memberIds: memberIds.sort(), failed: Boolean(error) })
         })
+      }))
+
+      Promise.all(pendingLeaves).then(clusterSnapshot => {
+        if (requestId !== snapshotRequest || dataRevision !== clusterDataRevisionRef.current) return
+        if (clusterSnapshot.some(cluster => cluster.failed)) {
+          lastSnapshotSignature = ''
+          requestSync()
+          return
+        }
+
+        const oldEntries = [...clusterMarkersRef.current.values()]
+        const unusedKeys = new Set(oldEntries.map(entry => entry.key))
+        const orderedSnapshot = [...clusterSnapshot].sort((a, b) => b.memberIds.length - a.memberIds.length)
+        const nextEntries = new Map<string, ClusterMarkerEntry>()
+        const nextHidden = new Set<string>()
+
+        orderedSnapshot.forEach(cluster => {
+          cluster.memberIds.forEach(id => nextHidden.add(id))
+          const newIds = new Set(cluster.memberIds)
+          let matched: ClusterMarkerEntry | undefined
+          let bestOverlap = 0
+          let bestRatio = 0
+          oldEntries.forEach(candidate => {
+            if (!unusedKeys.has(candidate.key)) return
+            const oldIds = new Set(candidate.members.map(member => member.vehicle.id))
+            let overlap = 0
+            newIds.forEach(id => { if (oldIds.has(id)) overlap += 1 })
+            const minimumOverlap = Math.min(2, Math.min(oldIds.size, newIds.size))
+            if (overlap < minimumOverlap) return
+            const ratio = overlap / Math.max(oldIds.size, newIds.size)
+            if (overlap > bestOverlap || (overlap === bestOverlap && ratio > bestRatio)) {
+              matched = candidate
+              bestOverlap = overlap
+              bestRatio = ratio
+            }
+          })
+
+          let entry = matched
+          if (entry) unusedKeys.delete(entry.key)
+          else {
+            const key = `orbital-cluster-${++nextClusterMarkerKey}`
+            const element = document.createElement('div')
+            element.className = 'orbital-cluster-marker'
+            const size = getOrbitalClusterSize(cluster.summary.slices.length, zoom)
+            element.style.width = `${size}px`
+            element.style.height = `${size}px`
+            const root = createRoot(element)
+            const marker = new mapboxgl.Marker({ element, anchor: 'center' })
+              .setLngLat(cluster.summary.coordinates)
+              .addTo(map)
+            entry = {
+              key,
+              sourceId: cluster.sourceId,
+              clusterId: cluster.summary.clusterId,
+              marker,
+              root,
+              element,
+              summary: cluster.summary,
+              members: [],
+              currentCoordinates: [...cluster.summary.coordinates],
+              targetCoordinates: [...cluster.summary.coordinates],
+              renderSignature: '',
+            }
+          }
+
+          entry.clusterId = cluster.summary.clusterId
+          entry.sourceId = cluster.sourceId
+          entry.summary = cluster.summary
+          entry.members = cluster.members
+          entry.targetCoordinates = [...cluster.summary.coordinates]
+          nextEntries.set(entry.key, entry)
+          renderClusterEntry(entry, zoom)
+        })
+
+        oldEntries.forEach(entry => {
+          if (unusedKeys.has(entry.key)) {
+            entry.root.unmount()
+            entry.marker.remove()
+          }
+        })
+        clusterMarkersRef.current = nextEntries
+        applyHiddenVehicles(nextHidden)
       })
     }
 
@@ -756,7 +955,6 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       }, delay)
     }
 
-    let syncTimer: number | null = null
     map.on('render', requestSync)
     map.on('moveend', requestSync)
     map.on('sourcedata', requestSync)
@@ -767,7 +965,10 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       map.off('moveend', requestSync)
       map.off('sourcedata', requestSync)
       if (syncTimer !== null) window.clearTimeout(syncTimer)
+      if (emptySnapshotTimer !== null) window.clearTimeout(emptySnapshotTimer)
+      snapshotRequest += 1
       if (syncFrame) cancelAnimationFrame(syncFrame)
+      removeClusterMarkers(clusterMarkersRef.current)
       restoreVehicleMarkers()
     }
   }, [mapLoaded])
@@ -785,7 +986,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     if (selectedVehicle) {
       const pos: [number, number] = selectedVehicle.status === 'moving'
         ? (() => {
-            const r = snappedRef.current[selectedVehicle.id] ?? VEHICLE_ROUTES[selectedVehicle.id]?.out
+            const r = snappedRef.current[selectedVehicle.id] ?? VEHICLE_ROUTES[selectedVehicle.id]?.out ?? selectedVehicle.mapRoute
             return r ? interpolateRoute(r, animProgRef.current[selectedVehicle.id] ?? 0.5) : [selectedVehicle.lng, selectedVehicle.lat]
           })()
         : [selectedVehicle.lng, selectedVehicle.lat]
@@ -802,18 +1003,9 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     map.setStyle(STYLES[style].url, { diff: false } as any)
     map.once('style.load', () => {
       ensureRouteLayers(map)
-      ensureVehicleClusterSource(map)
-      const source = map.getSource(VEHICLE_CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
-      if (source) {
-        const data = createVehicleClusterData(vehiclesRef.current, mapLegendRef.current, clusterAnchorPositionsRef.current)
-        source.setData(data)
-        clusterSourceDataSignatureRef.current = JSON.stringify(data.features.map(feature => [
-          feature.id,
-          feature.geometry.coordinates,
-          feature.properties.bucketIndex,
-        ]))
-        clusterDataRevisionRef.current += 1
-      }
+      clusterSourceDataSignatureRef.current.clear()
+      activeClusterSourceIdsRef.current = []
+      syncVehicleClusterSources(map, vehiclesRef.current, mapLegendRef.current, map.getZoom())
       updateRouteLayers(map, stateRef.current.showRoute ? stateRef.current.vehicle : null, snappedRef.current)
       if (stateRef.current.is3D) ensure3DBuildings(map)
     })

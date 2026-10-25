@@ -58,6 +58,11 @@ export interface Vehicle {
   driver: string
   vehicleType: VehicleType
   groupId: string | null
+  countryCode?: string
+  administrativeRegion?: string
+  city?: string
+  district?: string
+  geographicSector?: 'north' | 'south' | 'east' | 'west' | 'central'
   zone: string
   status: VehicleStatus
   speed: number
@@ -67,6 +72,8 @@ export interface Vehicle {
   lastUpdate: string
   location: string
   lat: number; lng: number
+  /** Optional demo GPS route in [longitude, latitude] coordinates. */
+  mapRoute?: [number, number][]
   odometer: number
   engineHours: number
   tripDistance: number
@@ -316,5 +323,210 @@ vehicles.push(...additionalFleetVehicles.map((extra, index) => {
     },
   }
 }))
+
+type DemoVehicleSeed = {
+  city: string
+  zone: string
+  countryCode?: string
+  administrativeRegion?: string
+  district?: string
+  geographicSector?: Vehicle['geographicSector']
+  coordinates: [number, number]
+  groupId: string | null
+  mapRoute?: [number, number][]
+}
+
+const riyadhDistricts: Array<Omit<DemoVehicleSeed, 'groupId'>> = [
+  { city: 'Riyadh', zone: 'Al Olaya', coordinates: [46.6753, 24.7118] },
+  { city: 'Riyadh', zone: 'Al Malaz', coordinates: [46.7350, 24.6740] },
+  { city: 'Riyadh', zone: 'Al Narjis', coordinates: [46.6352, 24.8654] },
+  { city: 'Riyadh', zone: 'Al Hamra', coordinates: [46.8124, 24.7642] },
+  { city: 'Riyadh', zone: 'Dhahrat Laban', coordinates: [46.5636, 24.6469] },
+  { city: 'Riyadh', zone: 'Al Dar Al Baida', coordinates: [46.7679, 24.5441] },
+  { city: 'Riyadh', zone: 'Al Sahafah', coordinates: [46.6269, 24.8041] },
+  { city: 'Riyadh', zone: 'Diriyah', coordinates: [46.5760, 24.7330] },
+  { city: 'Riyadh', zone: 'Al Yasmin', coordinates: [46.6500, 24.8330] },
+  { city: 'Riyadh', zone: 'Al Shifa', coordinates: [46.7100, 24.5650] },
+]
+
+const riyadhApproachCorridors: [number, number][][] = [
+  [[46.6800, 24.9500], [46.6780, 24.8650], [46.6770, 24.7900], [46.6753, 24.7136]],
+  [[46.6700, 24.4800], [46.6720, 24.5550], [46.6740, 24.6300], [46.6753, 24.7136]],
+  [[46.9800, 24.7200], [46.8800, 24.7180], [46.7800, 24.7160], [46.6753, 24.7136]],
+  [[46.3500, 24.7100], [46.4550, 24.7110], [46.5650, 24.7120], [46.6753, 24.7136]],
+  [[46.9100, 24.9000], [46.8250, 24.8400], [46.7450, 24.7800], [46.6753, 24.7136]],
+  [[46.4500, 24.5300], [46.5250, 24.5900], [46.6000, 24.6500], [46.6753, 24.7136]],
+]
+
+const saudiCityCenters: Array<{ city: string; administrativeRegion: string; coordinates: [number, number] }> = [
+  { city: 'Jeddah', administrativeRegion: 'Makkah', coordinates: [39.1925, 21.4858] },
+  { city: 'Makkah', administrativeRegion: 'Makkah', coordinates: [39.8579, 21.3891] },
+  { city: 'Madinah', administrativeRegion: 'Madinah', coordinates: [39.6111, 24.4672] },
+  { city: 'Dammam', administrativeRegion: 'Eastern Province', coordinates: [50.0888, 26.4207] },
+  { city: 'Al Khobar', administrativeRegion: 'Eastern Province', coordinates: [50.2083, 26.2172] },
+  { city: 'Jubail', administrativeRegion: 'Eastern Province', coordinates: [49.6583, 27.0174] },
+  { city: 'Abha', administrativeRegion: 'Asir', coordinates: [42.5053, 18.2164] },
+  { city: 'Tabuk', administrativeRegion: 'Tabuk', coordinates: [36.5550, 28.3838] },
+  { city: 'Hail', administrativeRegion: 'Hail', coordinates: [41.7208, 27.5114] },
+  { city: 'Buraidah', administrativeRegion: 'Qassim', coordinates: [43.9818, 26.3592] },
+  { city: 'Jazan', administrativeRegion: 'Jazan', coordinates: [42.5611, 16.8894] },
+  { city: 'Najran', administrativeRegion: 'Najran', coordinates: [44.2289, 17.5650] },
+]
+const saudiCityAssignments = [
+  0, 0, 0, 0, 0, 0, // Jeddah: 6
+  1, 1, 1, 1, 1, // Makkah: 5
+  2, 2, 2, 2, // Madinah: 4
+  3, 3, 3, 3, 3, // Dammam: 5
+  4, 4, // Al Khobar: 2
+  5, 5, // Jubail: 2
+  6, 6, 6, // Abha: 3
+  7, 7, // Tabuk: 2
+  8, 8, // Hail: 2
+  9, 9, // Buraidah: 2
+  10, // Jazan: 1
+  11, // Najran: 1
+]
+
+const neighboringCityCenters: Array<{ city: string; country: string; countryCode: string; coordinates: [number, number] }> = [
+  { city: 'Kuwait City', country: 'Kuwait', countryCode: 'KWT', coordinates: [47.9774, 29.3759] },
+  { city: 'Manama', country: 'Bahrain', countryCode: 'BHR', coordinates: [50.5876, 26.2235] },
+  { city: 'Doha', country: 'Qatar', countryCode: 'QAT', coordinates: [51.5310, 25.2854] },
+  { city: 'Abu Dhabi', country: 'United Arab Emirates', countryCode: 'ARE', coordinates: [54.3773, 24.4539] },
+  { city: 'Muscat', country: 'Oman', countryCode: 'OMN', coordinates: [58.3829, 23.5880] },
+]
+
+const generatedDemoVehicles: Vehicle[] = Array.from({ length: 120 }, (_, index): Vehicle => {
+  const idNumber = index + 13
+  const template = vehicles[index % vehicles.length]
+  const isRiyadh = index < 60
+  const isSaudi = index < 95
+  let seed: DemoVehicleSeed
+
+  if (isRiyadh && index < 30) {
+    const corridorIndex = Math.floor(index / 5) % riyadhApproachCorridors.length
+    const inbound = index < 15
+    const corridor = riyadhApproachCorridors[corridorIndex]
+    const route = inbound ? [...corridor, ...corridor.slice(0, -1).reverse()] : [...corridor.slice().reverse(), ...corridor.slice(1)]
+    const laneOffset = ((index % 5) - 2) * 0.0018
+    const mapRoute = route.map(([lng, lat]) => [lng + laneOffset, lat + laneOffset * 0.45] as [number, number])
+    const start = mapRoute[0]
+    seed = {
+      city: 'Riyadh',
+      zone: inbound ? `Riyadh ${['North', 'South', 'East', 'West', 'Northeast', 'Southwest'][corridorIndex]} inbound` : `Riyadh ${['North', 'South', 'East', 'West', 'Northeast', 'Southwest'][corridorIndex]} outbound`,
+      countryCode: 'SAU', administrativeRegion: 'Riyadh', geographicSector: (['north', 'south', 'east', 'west', 'north', 'south'] as const)[corridorIndex],
+      coordinates: start,
+      groupId: ['riyadh-north', 'riyadh-south', 'riyadh-east', 'riyadh-west', 'riyadh-central'][corridorIndex % 5],
+      mapRoute,
+    }
+  } else if (isRiyadh) {
+    const district = riyadhDistricts[(index - 30) % riyadhDistricts.length]
+    const localIndex = index - 30
+    const latOffset = (((localIndex * 7) % 9) - 4) * 0.004
+    const lngOffset = (((localIndex * 5) % 11) - 5) * 0.004
+    seed = {
+      ...district,
+      countryCode: 'SAU', administrativeRegion: 'Riyadh', district: district.zone,
+      geographicSector: district.zone === 'Al Olaya' || district.zone === 'Al Malaz' ? 'central' : undefined,
+      coordinates: [district.coordinates[0] + lngOffset, district.coordinates[1] + latOffset],
+      groupId: ['riyadh-central', 'riyadh-north', 'riyadh-south', 'riyadh-east', 'riyadh-west'][localIndex % 5],
+    }
+  } else if (isSaudi) {
+    const cityIndex = saudiCityAssignments[index - 60]
+    const city = saudiCityCenters[cityIndex]
+    const localIndex = saudiCityAssignments.slice(0, index - 60).filter(assignedCity => assignedCity === cityIndex).length
+    const latOffset = (((localIndex * 7) % 7) - 3) * 0.025
+    const lngOffset = (((localIndex * 5) % 9) - 4) * 0.025
+    seed = {
+      city: city.city,
+      zone: city.city,
+      countryCode: 'SAU', administrativeRegion: city.administrativeRegion,
+      coordinates: [city.coordinates[0] + lngOffset, city.coordinates[1] + latOffset],
+      groupId: null,
+    }
+  } else {
+    const neighborIndex = index - 95
+    const neighbor = neighboringCityCenters[Math.floor(neighborIndex / 5)]
+    const offsets: Array<[number, number]> = [[0, 0], [-0.006, 0.004], [0.005, 0.006], [-0.004, -0.006], [0.007, -0.003]]
+    const [lngOffset, latOffset] = offsets[neighborIndex % offsets.length]
+    seed = {
+      city: neighbor.city,
+      zone: neighbor.country,
+      countryCode: neighbor.countryCode,
+      administrativeRegion: neighbor.country,
+      coordinates: [neighbor.coordinates[0] + lngOffset, neighbor.coordinates[1] + latOffset],
+      groupId: null,
+    }
+  }
+
+  const isCommuter = Boolean(seed.mapRoute)
+  const status: VehicleStatus = isCommuter || index % 5 < 3 ? 'moving' : index % 5 === 3 ? 'idle' : 'offline'
+  const speed = status === 'moving' ? 34 + (index * 17) % 72 : 0
+  const [lng, lat] = seed.coordinates
+  const vehicleTypes: VehicleType[] = ['truck', 'van', 'car', 'motorcycle']
+  const towing = !isCommuter && index % 19 === 0
+
+  return {
+    ...template,
+    id: `v${String(idNumber).padStart(3, '0')}`,
+    name: `${seed.city} Fleet ${String(idNumber).padStart(3, '0')}`,
+    plate: `FT-${String(1000 + index)}-${String.fromCharCode(65 + (index % 26))}`,
+    driver: `Demo Driver ${String(idNumber).padStart(3, '0')}`,
+    vehicleType: vehicleTypes[index % vehicleTypes.length],
+    groupId: seed.groupId,
+    zone: seed.zone,
+    countryCode: seed.countryCode ?? 'SAU',
+    administrativeRegion: seed.administrativeRegion,
+    city: seed.city,
+    district: seed.district,
+    geographicSector: seed.geographicSector,
+    status,
+    speed,
+    fuelLevel: 18 + (index * 23) % 80,
+    lastUpdate: status === 'offline' ? `${18 + index % 40} min ago` : `${2 + index % 55} sec ago`,
+    location: isSaudi ? `${seed.zone}, Saudi Arabia` : seed.city === 'Riyadh' ? `${seed.zone}, Saudi Arabia` : `${seed.city}, ${seed.zone}`,
+    lat,
+    lng,
+    mapRoute: seed.mapRoute,
+    odometer: 25000 + index * 1843,
+    engineHours: 600 + index * 47,
+    tripDistance: status === 'moving' ? Number((3.5 + (index % 30) * 1.7).toFixed(1)) : 0,
+    tripDuration: status === 'moving' ? `${12 + index % 95}m` : '—',
+    tripStart: status === 'moving' ? '09:10 AM' : '—',
+    telemetry: {
+      ...template.telemetry,
+      towing,
+      gpsState: status === 'offline' ? 'offline' : index % 7 === 0 ? 'weak' : 'online',
+      batteryPercent: 22 + (index * 13) % 78,
+      batteryVoltage: Number((11.5 + (index % 20) * 0.16).toFixed(1)),
+      satellites: status === 'offline' ? 0 : 5 + index % 10,
+      driverAuthorization: index % 17 === 0 ? 'unknown' : 'authorized',
+      waslState: index % 9 === 0 ? 'not_connected' : 'connected',
+      actualWeightTons: Number((0.8 + (index % 18) * 0.12).toFixed(2)),
+      weightLimitTons: 3,
+      cameraState: index % 13 === 0 ? 'not_installed' : 'working',
+    },
+    sensors: template.sensors.map(reading => ({ ...reading })),
+    tripHistory: template.tripHistory.map(point => ({ ...point })),
+    route: {
+      outbound: template.route.outbound.map(point => ({ ...point })),
+      return: template.route.return?.map(point => ({ ...point })),
+      events: template.route.events.map(event => ({ ...event })),
+    },
+  }
+})
+
+vehicles.forEach(vehicle => {
+  vehicle.countryCode ??= 'SAU'
+  vehicle.administrativeRegion ??= 'Riyadh'
+  vehicle.city ??= 'Riyadh'
+  vehicle.district ??= vehicle.zone
+  vehicle.geographicSector ??= vehicle.groupId?.includes('north') ? 'north'
+    : vehicle.groupId?.includes('south') ? 'south'
+      : vehicle.groupId?.includes('east') ? 'east'
+        : vehicle.groupId?.includes('west') ? 'west'
+          : 'central'
+})
+
+vehicles.push(...generatedDemoVehicles)
 
 vehicles.forEach(vehicle => { vehicle.rawDeviceData = mockRawDeviceData })

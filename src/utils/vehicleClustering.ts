@@ -29,6 +29,114 @@ export interface VehicleClusterSummary {
 
 type BucketDefinition = Omit<VehicleClusterSlice, 'count' | 'ratio' | 'bucketIndex'>
 type VehiclePointProperties = { vehicleId: string; bucketIndex: number }
+export interface VehicleClusterPartition {
+  id: string
+  data: FeatureCollection<Point, VehiclePointProperties>
+}
+
+const KNOWN_CITIES: Array<{ name: string; region: string; countryCode: string; lng: number; lat: number }> = [
+  { name: 'Riyadh', region: 'Riyadh', countryCode: 'SAU', lng: 46.6753, lat: 24.7136 },
+  { name: 'Jeddah', region: 'Makkah', countryCode: 'SAU', lng: 39.1925, lat: 21.4858 },
+  { name: 'Makkah', region: 'Makkah', countryCode: 'SAU', lng: 39.8579, lat: 21.3891 },
+  { name: 'Madinah', region: 'Madinah', countryCode: 'SAU', lng: 39.6111, lat: 24.4672 },
+  { name: 'Dammam', region: 'Eastern Province', countryCode: 'SAU', lng: 50.0888, lat: 26.4207 },
+  { name: 'Al Khobar', region: 'Eastern Province', countryCode: 'SAU', lng: 50.2083, lat: 26.2172 },
+  { name: 'Jubail', region: 'Eastern Province', countryCode: 'SAU', lng: 49.6583, lat: 27.0174 },
+  { name: 'Abha', region: 'Asir', countryCode: 'SAU', lng: 42.5053, lat: 18.2164 },
+  { name: 'Tabuk', region: 'Tabuk', countryCode: 'SAU', lng: 36.555, lat: 28.3838 },
+  { name: 'Hail', region: 'Hail', countryCode: 'SAU', lng: 41.7208, lat: 27.5114 },
+  { name: 'Buraidah', region: 'Qassim', countryCode: 'SAU', lng: 43.9818, lat: 26.3592 },
+  { name: 'Jazan', region: 'Jazan', countryCode: 'SAU', lng: 42.5611, lat: 16.8894 },
+  { name: 'Najran', region: 'Najran', countryCode: 'SAU', lng: 44.2289, lat: 17.565 },
+  { name: 'Kuwait City', region: 'Kuwait', countryCode: 'KWT', lng: 47.9774, lat: 29.3759 },
+  { name: 'Manama', region: 'Bahrain', countryCode: 'BHR', lng: 50.5876, lat: 26.2235 },
+  { name: 'Doha', region: 'Qatar', countryCode: 'QAT', lng: 51.531, lat: 25.2854 },
+  { name: 'Abu Dhabi', region: 'Abu Dhabi', countryCode: 'ARE', lng: 54.3773, lat: 24.4539 },
+  { name: 'Muscat', region: 'Muscat', countryCode: 'OMN', lng: 58.3829, lat: 23.588 },
+]
+
+function vehicleGeography(vehicle: Vehicle, position: [number, number]) {
+  const nearest = KNOWN_CITIES.reduce((best, city) => {
+    const distance = Math.hypot((position[0] - city.lng) * Math.cos(position[1] * Math.PI / 180), position[1] - city.lat)
+    return distance < best.distance ? { city, distance } : best
+  }, { city: KNOWN_CITIES[0], distance: Infinity })
+  const explicitCountry = vehicle.countryCode
+  const countryCode = explicitCountry || (nearest.distance < 2.3 ? nearest.city.countryCode : `UNK-${vehicle.id}`)
+  const city = vehicle.city || (countryCode === 'SAU' ? nearest.city.name : nearest.city.name)
+  const region = vehicle.administrativeRegion || (countryCode === 'SAU' && nearest.distance < 2.3 ? nearest.city.region : city)
+  const locationText = `${vehicle.zone} ${vehicle.location} ${vehicle.groupId ?? ''}`.toLowerCase()
+  const directional = vehicle.geographicSector || (locationText.match(/north|northern/) ? 'north'
+    : locationText.match(/south|southern/) ? 'south'
+      : locationText.match(/east|eastern/) ? 'east'
+        : locationText.match(/west|western/) ? 'west'
+          : undefined)
+  const deltaLng = position[0] - nearest.city.lng
+  const deltaLat = position[1] - nearest.city.lat
+  const positionSector = Math.max(Math.abs(deltaLng), Math.abs(deltaLat)) < 0.06 ? 'central'
+    : Math.abs(deltaLat) >= Math.abs(deltaLng) ? (deltaLat > 0 ? 'north' : 'south')
+      : deltaLng > 0 ? 'east' : 'west'
+  const sector = vehicle.status === 'moving' ? positionSector : directional ?? 'central'
+  const district = vehicle.status === 'moving'
+    ? `${city}-${Math.floor(position[0] / 0.04)}-${Math.floor(position[1] / 0.04)}`
+    : vehicle.district || (/^riyadh$/i.test(city) ? vehicle.zone.replace(/^riyadh\s*/i, '').trim() : '') || city
+  return { countryCode, city, region, sector, district }
+}
+
+function getClusterLevel(zoom: number, legend: MapLegendConfig) {
+  if (legend.clusterGrouping === 'distance') return 'country'
+  const settings = legend.clusterZoomSettings
+  const countryMax = settings.countryMaxZoom
+  const regionMax = Math.max(countryMax, settings.regionMaxZoom)
+  const sectorMax = Math.max(regionMax, settings.sectorMaxZoom)
+  if (zoom <= countryMax) return 'country'
+  if (zoom <= regionMax) return 'region'
+  if (zoom <= sectorMax) return 'sector'
+  return 'neighborhood'
+}
+
+export function getVehicleClusterMaxZoom(legend: MapLegendConfig) {
+  if (legend.clusterGrouping === 'distance') return Math.max(1, ...legend.clusterZoomSettings.distanceRanges.map(range => range.maxZoom))
+  return Math.max(legend.clusterZoomSettings.countryMaxZoom, legend.clusterZoomSettings.regionMaxZoom,
+    legend.clusterZoomSettings.sectorMaxZoom, legend.clusterZoomSettings.neighborhoodMaxZoom)
+}
+
+function getPartitionKey(vehicle: Vehicle, position: [number, number], level: string) {
+  const geo = vehicleGeography(vehicle, position)
+  if (level === 'country') return `${geo.countryCode}`
+  if (level === 'region') return `${geo.countryCode}:${geo.region}`
+  if (level === 'sector') return `${geo.countryCode}:${geo.region}:${geo.city}:${geo.sector}`
+  return `${geo.countryCode}:${geo.region}:${geo.city}:${geo.district}`
+}
+
+export function getClusterRadiusPixels(zoom: number, latitude: number, legend: MapLegendConfig) {
+  if (legend.clusterGrouping !== 'distance') return 84
+  const orderedRanges = [...legend.clusterZoomSettings.distanceRanges].sort((a, b) => a.maxZoom - b.maxZoom)
+  const range = orderedRanges.find(item => zoom <= item.maxZoom)
+    ?? orderedRanges[orderedRanges.length - 1]
+  const metersPerPixel = 40075016.686 * Math.max(0.08, Math.cos(latitude * Math.PI / 180)) / (512 * 2 ** zoom)
+  return Math.max(8, Math.min(512, (range?.radiusKm ?? 6) * 1000 / metersPerPixel))
+}
+
+export function createVehicleClusterPartitions(
+  vehicles: Vehicle[],
+  legend: MapLegendConfig,
+  zoom: number,
+  currentPositions?: Map<string, [number, number]>,
+): VehicleClusterPartition[] {
+  const level = getClusterLevel(zoom, legend)
+  const groups = new Map<string, Vehicle[]>()
+  vehicles.forEach(vehicle => {
+    const position = currentPositions?.get(vehicle.id) ?? [vehicle.lng, vehicle.lat]
+    const key = getPartitionKey(vehicle, position, level)
+    const group = groups.get(key) ?? []
+    group.push(vehicle)
+    groups.set(key, group)
+  })
+  return [...groups.entries()].map(([key, members]) => ({
+    id: `${level}-${key}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
+    data: createVehicleClusterData(members, legend, currentPositions),
+  }))
+}
 
 export function getVehicleClusterBuckets(vehicles: Vehicle[], legend: MapLegendConfig): BucketDefinition[] {
   if (legend.mode === 'status') {
@@ -43,7 +151,7 @@ export function getVehicleClusterBuckets(vehicles: Vehicle[], legend: MapLegendC
   const options = getMetricOptions(vehicles, legend.customSensors)
   const metricUnit = options.find(option => option.key === legend.metricKey)?.unit ?? ''
   const unit = legend.metricKey === 'fuelLevel' && legend.fuelUnit === 'liter' ? 'L' : metricUnit
-  const ranges = legend.ranges.map((range: MapColorRange, index) => ({
+  const ranges: BucketDefinition[] = legend.ranges.map((range: MapColorRange, index) => ({
     key: range.id || `range-${index + 1}`,
     label: `${formatNumber(range.min)}-${formatNumber(range.max)}${unit ? ` ${unit}` : ''}`,
     color: range.color.trim().toLowerCase(),

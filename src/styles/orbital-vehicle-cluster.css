@@ -68,7 +68,9 @@
   position: absolute;
   z-index: calc(100 - var(--orbit-index));
   pointer-events: none;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(var(--orbit-scale));
+  transform-origin: center;
+  transition: transform 160ms cubic-bezier(.16, 1, .3, 1);
   /* Opacity controls for the halo gradient. Raise a value to make that part less transparent. */
   --orbit-glow-core-opacity: 2%;
   --orbit-glow-inner-opacity: 6%;
@@ -195,7 +197,7 @@
   opacity: 0;
   pointer-events: none;
   text-align: start;
-  transform: translate(-50%, 4px) scale(.96);
+  transform: translate(-50%, 4px) scale(var(--orbit-inverse-scale));
   transform-origin: bottom center;
   transition: opacity 120ms ease, transform 120ms ease;
   white-space: normal;
@@ -204,7 +206,7 @@
 .orbital-cluster-vehicle:hover .orbital-cluster-tooltip,
 .orbital-cluster-vehicle:focus-visible .orbital-cluster-tooltip {
   opacity: 1;
-  transform: translate(-50%, 0) scale(1);
+  transform: translate(-50%, 0) scale(var(--orbit-inverse-scale));
 }
 
 .orbital-cluster-tooltip-name {
@@ -249,20 +251,21 @@
 }
 
 @keyframes orbital-cluster-ring-glow {
-  0%, 100% { box-shadow: inset 0 0 38px 2px color-mix(in srgb, var(--orbit-color) 18%, transparent); }
-  50% { box-shadow: inset 0 0 50px 5px color-mix(in srgb, var(--orbit-color) 32%, transparent); }
+  0%, 100% { box-shadow: inset 0 0 44px 4px color-mix(in srgb, var(--orbit-color) 20%, transparent); }
+  50% { box-shadow: inset 0 0 44px 4px color-mix(in srgb, var(--orbit-color) 30%, transparent); }
 }
 
 @keyframes orbital-cluster-outer-ring-glow {
   0%, 100% {
-    box-shadow: 0 0 24px 5px color-mix(in srgb, var(--orbit-color) 23%, transparent), 0 0 40px 12px color-mix(in srgb, var(--orbit-color) 12%, transparent), inset 0 0 42px 3px color-mix(in srgb, var(--orbit-color) 20%, transparent);
+    box-shadow: 0 0 28px 7px color-mix(in srgb, var(--orbit-color) 20%, transparent), 0 0 48px 15px color-mix(in srgb, var(--orbit-color) 12%, transparent), inset 0 0 48px 4px color-mix(in srgb, var(--orbit-color) 20%, transparent);
   }
   50% {
-    box-shadow: 0 0 32px 9px color-mix(in srgb, var(--orbit-color) 38%, transparent), 0 0 54px 18px color-mix(in srgb, var(--orbit-color) 21%, transparent), inset 0 0 54px 5px color-mix(in srgb, var(--orbit-color) 34%, transparent);
+    box-shadow: 0 0 28px 7px color-mix(in srgb, var(--orbit-color) 32%, transparent), 0 0 48px 15px color-mix(in srgb, var(--orbit-color) 20%, transparent), inset 0 0 48px 4px color-mix(in srgb, var(--orbit-color) 30%, transparent);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .orbital-cluster-lane,
   .orbital-cluster-ring-path,
   .orbital-cluster-vehicle-dot { animation: none; }
   .orbital-cluster-vehicle,

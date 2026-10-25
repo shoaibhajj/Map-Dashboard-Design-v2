@@ -11,6 +11,7 @@ interface Props {
   count: number
   slices: VehicleClusterSlice[]
   members: OrbitingClusterMember[]
+  zoom: number
   lang: 'en' | 'ar'
   onClusterClick: () => void
   onVehicleSelect: (vehicle: Vehicle) => void
@@ -18,10 +19,25 @@ interface Props {
 
 const FIRST_ORBIT_RADIUS = 54
 const ORBIT_GAP = 42
+const MIN_CLUSTER_SIZE = 72
+const MAX_CLUSTER_SIZE = 260
+const MIN_CLUSTER_ZOOM = 4
+const MAX_CLUSTER_ZOOM = 12
 
-export function getOrbitalClusterSize(ringCount: number) {
+function getBaseOrbitalClusterSize(ringCount: number) {
   const outerRadius = FIRST_ORBIT_RADIUS + Math.max(0, ringCount - 1) * ORBIT_GAP
   return Math.max(156, Math.ceil((outerRadius + 25) * 2))
+}
+
+export function getOrbitalClusterScale(ringCount: number, zoom: number) {
+  const baseSize = getBaseOrbitalClusterSize(ringCount)
+  const zoomProgress = Math.max(0, Math.min(1, (zoom - MIN_CLUSTER_ZOOM) / (MAX_CLUSTER_ZOOM - MIN_CLUSTER_ZOOM)))
+  const zoomSize = MIN_CLUSTER_SIZE + zoomProgress * (MAX_CLUSTER_SIZE - MIN_CLUSTER_SIZE)
+  return Math.min(1, zoomSize / baseSize)
+}
+
+export function getOrbitalClusterSize(ringCount: number, zoom: number) {
+  return Math.ceil(getBaseOrbitalClusterSize(ringCount) * getOrbitalClusterScale(ringCount, zoom))
 }
 
 function statusLabel(vehicle: Vehicle, lang: 'en' | 'ar') {
@@ -47,8 +63,9 @@ function OrbitTooltip({ vehicle, lang }: { vehicle: Vehicle; lang: 'en' | 'ar' }
   )
 }
 
-export default function VehicleClusterMarker({ count, slices, members, lang, onClusterClick, onVehicleSelect }: Props) {
-  const size = getOrbitalClusterSize(slices.length)
+export default function VehicleClusterMarker({ count, slices, members, zoom, lang, onClusterClick, onVehicleSelect }: Props) {
+  const scale = getOrbitalClusterScale(slices.length, zoom)
+  const size = getOrbitalClusterSize(slices.length, zoom)
   const center = size / 2
   const totalLabel = count.toLocaleString(lang === 'ar' ? 'ar' : 'en')
   const groups = slices.map((slice, index) => ({
@@ -78,6 +95,8 @@ export default function VehicleClusterMarker({ count, slices, members, lang, onC
           '--orbit-color': slice.color,
           '--orbit-index': ringIndex,
           '--orbit-delay': `${ringIndex * -0.55}s`,
+          '--orbit-scale': scale,
+          '--orbit-inverse-scale': 1 / scale,
         } as CSSProperties
 
         return (
