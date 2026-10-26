@@ -28,10 +28,11 @@ export interface VehicleClusterSummary {
 }
 
 type BucketDefinition = Omit<VehicleClusterSlice, 'count' | 'ratio' | 'bucketIndex'>
-type VehiclePointProperties = { vehicleId: string; bucketIndex: number }
+type VehiclePointProperties = { vehicleId?: string; bucketIndex?: number; [key: string]: unknown }
 export interface VehicleClusterPartition {
   id: string
   data: FeatureCollection<Point, VehiclePointProperties>
+  members: Array<{ vehicleId: string; bucketIndex: number }>
 }
 
 const KNOWN_CITIES: Array<{ name: string; region: string; countryCode: string; lng: number; lat: number }> = [
@@ -54,6 +55,15 @@ const KNOWN_CITIES: Array<{ name: string; region: string; countryCode: string; l
   { name: 'Abu Dhabi', region: 'Abu Dhabi', countryCode: 'ARE', lng: 54.3773, lat: 24.4539 },
   { name: 'Muscat', region: 'Muscat', countryCode: 'OMN', lng: 58.3829, lat: 23.588 },
 ]
+
+const COUNTRY_CLUSTER_CENTERS: Record<string, [number, number]> = {
+  SAU: [45.1, 23.9],
+  KWT: [47.6, 29.3],
+  BHR: [50.55, 26.1],
+  QAT: [51.2, 25.3],
+  ARE: [54.2, 24.1],
+  OMN: [56.1, 21.3],
+}
 
 function vehicleGeography(vehicle: Vehicle, position: [number, number]) {
   const nearest = KNOWN_CITIES.reduce((best, city) => {
@@ -95,6 +105,7 @@ function getClusterLevel(zoom: number, legend: MapLegendConfig) {
 }
 
 export function getVehicleClusterMaxZoom(legend: MapLegendConfig) {
+  if (!legend.clusteringEnabled) return -1
   if (legend.clusterGrouping === 'distance') return Math.max(1, ...legend.clusterZoomSettings.distanceRanges.map(range => range.maxZoom))
   return Math.max(legend.clusterZoomSettings.countryMaxZoom, legend.clusterZoomSettings.regionMaxZoom,
     legend.clusterZoomSettings.sectorMaxZoom, legend.clusterZoomSettings.neighborhoodMaxZoom)
@@ -132,10 +143,48 @@ export function createVehicleClusterPartitions(
     group.push(vehicle)
     groups.set(key, group)
   })
-  return [...groups.entries()].map(([key, members]) => ({
-    id: `${level}-${key}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
-    data: createVehicleClusterData(members, legend, currentPositions),
-  }))
+  return [...groups.entries()].map(([key, vehiclesInGroup]) => {
+    const id = `${level}-${key}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-')
+    const vehicleData = createVehicleClusterData(vehiclesInGroup, legend, currentPositions)
+    const members = vehicleData.features.flatMap(feature =>
+      typeof feature.properties.vehicleId === 'string' && Number.isFinite(feature.properties.bucketIndex)
+        ? [{ vehicleId: feature.properties.vehicleId, bucketIndex: Number(feature.properties.bucketIndex) }]
+        : [],
+    )
+
+    if (legend.clusterGrouping !== 'administrative') return { id, data: vehicleData, members }
+
+    let clusterId = 0
+    for (const character of key) clusterId = (clusterId * 31 + character.charCodeAt(0)) | 0
+    clusterId = Math.abs(clusterId)
+    const memberCenter = vehicleData.features.reduce<[number, number]>((sum, feature) => [
+      sum[0] + feature.geometry.coordinates[0] / Math.max(1, vehicleData.features.length),
+      sum[1] + feature.geometry.coordinates[1] / Math.max(1, vehicleData.features.length),
+    ], [0, 0])
+    const coordinates = level === 'country'
+      ? COUNTRY_CLUSTER_CENTERS[key] ?? memberCenter
+      : memberCenter
+    const bucketCounts = getVehicleClusterBuckets(vehiclesInGroup, legend).map((_, bucketIndex) => [
+      `bucket_${bucketIndex}`,
+      members.filter(member => member.bucketIndex === bucketIndex).length,
+    ])
+    const aggregate: Feature<Point, VehiclePointProperties> = {
+      type: 'Feature',
+      id: clusterId,
+      geometry: { type: 'Point', coordinates },
+      properties: {
+        cluster: true,
+        cluster_id: clusterId,
+        point_count: members.length,
+        ...Object.fromEntries(bucketCounts),
+      },
+    }
+    return {
+      id,
+      data: { type: 'FeatureCollection', features: [aggregate] },
+      members,
+    }
+  })
 }
 
 export function getVehicleClusterBuckets(vehicles: Vehicle[], legend: MapLegendConfig): BucketDefinition[] {

@@ -587,13 +587,26 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
 
         <div style={{ display: 'grid', gap: 9, borderTop: '1px solid var(--border)', paddingTop: 11 }}>
           <div style={{ fontSize: 11, fontWeight: 750 }}>{t('map_cluster_settings')}</div>
-          <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700 }}>
-            {t('map_cluster_grouping')}
-            <select value={config.clusterGrouping} onChange={event => onChange({ ...config, clusterGrouping: event.target.value as ClusterGroupingMode })} style={inputStyle}>
-              <option value="administrative">{t('map_cluster_administrative')}</option>
-              <option value="distance">{t('map_cluster_distance')}</option>
-            </select>
+          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            <span>{t('map_cluster_enabled')}</span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={config.clusteringEnabled}
+              onChange={event => onChange({ ...config, clusteringEnabled: event.target.checked })}
+              aria-label={t('map_cluster_enabled')}
+              style={{ width: 36, height: 20, accentColor: 'var(--primary)', cursor: 'pointer' }}
+            />
           </label>
+          <small style={{ marginTop: -5, color: 'var(--muted-foreground)', fontSize: 9.5, lineHeight: 1.4 }}>{t('map_cluster_toggle_hint')}</small>
+          {config.clusteringEnabled && <>
+            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700 }}>
+              {t('map_cluster_grouping')}
+              <select value={config.clusterGrouping} onChange={event => onChange({ ...config, clusterGrouping: event.target.value as ClusterGroupingMode })} style={inputStyle}>
+                <option value="administrative">{t('map_cluster_administrative')}</option>
+                <option value="distance">{t('map_cluster_distance')}</option>
+              </select>
+            </label>
           {config.clusterGrouping === 'administrative' ? <div style={{ display: 'grid', gridTemplateColumns: '1fr 82px', gap: '7px 9px', alignItems: 'center', fontSize: 10.5 }}>
             <p style={{ gridColumn: '1 / -1', margin: 0, color: 'var(--muted-foreground)', fontSize: 10, lineHeight: 1.45 }}>{t('map_cluster_admin_hint')}</p>
             {([
@@ -626,6 +639,7 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
               </label>
             </div>)}
           </div>}
+          </>}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 9 }}>

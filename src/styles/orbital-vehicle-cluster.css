@@ -25,19 +25,34 @@
 .orbital-cluster-core-hit {
   position: absolute;
   z-index: 1;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: radial-gradient(circle, #182842 0 21px, transparent 23px);
   cursor: pointer;
   pointer-events: auto;
+  transform: translate(-50%, -50%) scale(var(--orbit-core-scale, 1));
   -webkit-tap-highlight-color: transparent;
 }
 
 .orbital-cluster-core-hit:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;
+}
+
+.orbital-cluster-core-hit:hover,
+.orbital-cluster-core-hit:focus-visible {
+  z-index: 1001;
+}
+
+.orbital-cluster-core-hit.is-compact.has-vehicle-list {
+  z-index: 10020;
 }
 
 .orbital-cluster-count {
@@ -55,13 +70,212 @@
   background: radial-gradient(circle at 35% 24%, #263d60, #14233a 74%);
   box-shadow: 0 0 12px rgba(36, 220, 190, .23), 0 0 26px rgba(71, 100, 255, .17), inset 0 0 12px rgba(121, 219, 226, .1);
   color: #f5fbff;
-  font-size: 13px;
+  font-size: max(8px, calc(13px * var(--orbit-core-scale, 1)));
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(var(--orbit-core-scale, 1));
+  transform-origin: center;
   text-shadow: 0 0 8px color-mix(in srgb, var(--primary) 64%, transparent);
+}
+
+.orbital-cluster-summary-tooltip,
+.orbital-cluster-ring-tooltip {
+  position: absolute;
+  z-index: 10000;
+  left: 50%;
+  display: grid;
+  width: max-content;
+  max-width: 220px;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card) 97%, transparent);
+  box-shadow: 0 9px 26px rgba(0, 0, 0, .34), 0 0 16px color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--foreground);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  text-align: start;
+  transform: translate(-50%, 4px) scale(var(--orbit-inverse-scale, 1));
+  transform-origin: bottom center;
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: nowrap;
+}
+
+.orbital-cluster-summary-tooltip {
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, 4px) scale(var(--orbit-core-inverse-scale, 1));
+}
+
+.orbital-cluster-vehicle-list {
+  position: absolute;
+  z-index: 10020;
+  bottom: calc(100% + 13px);
+  left: 50%;
+  display: none;
+  width: min(330px, calc(100vw - 32px));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 98%, #07151b);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, .48), 0 0 18px color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--foreground);
+  text-align: start;
+  transform: translate(-50%, 4px) scale(var(--orbit-core-inverse-scale, 1));
+  transform-origin: bottom center;
+  pointer-events: none;
+  cursor: default;
+}
+
+.orbital-cluster-vehicle-list strong {
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.orbital-cluster-vehicle-list-heading {
+  display: grid;
+  grid-template-columns: minmax(80px, 1.2fr) minmax(56px, .8fr) minmax(74px, .9fr);
+  gap: 8px;
+  padding: 0 3px 4px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.orbital-cluster-vehicle-list-heading span:last-child {
+  text-align: end;
+}
+
+.orbital-cluster-core-hit.is-compact .orbital-cluster-vehicle-list {
+  display: grid;
+  transform: translate(-50%, 0) scale(var(--orbit-core-inverse-scale, 1));
+  pointer-events: auto;
+}
+
+.orbital-cluster-vehicle-list-rows {
+  display: grid;
+  max-height: 230px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.orbital-cluster-vehicle-list-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1.2fr) minmax(56px, .8fr) minmax(74px, .9fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 4px 3px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  border-inline-start: 2px solid var(--vehicle-status-color);
+  font-size: 9px;
+}
+
+.orbital-cluster-vehicle-list-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbital-cluster-vehicle-list-name i {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vehicle-status-color);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--vehicle-status-color) 60%, transparent);
+}
+
+.orbital-cluster-vehicle-list-speed,
+.orbital-cluster-vehicle-list-update {
+  color: var(--secondary-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.orbital-cluster-vehicle-list-update {
+  color: var(--muted-foreground);
+  text-align: end;
+}
+
+.orbital-cluster-compact-ring {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  width: 64px;
+  height: 64px;
+  overflow: visible;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(0, 0, 0, .48));
+}
+
+.orbital-cluster-compact-track,
+.orbital-cluster-compact-segment {
+  fill: none;
+  stroke-width: 3.4;
+}
+
+.orbital-cluster-compact-track {
+  stroke: rgba(180, 205, 218, .2);
+}
+
+.orbital-cluster-compact-segment {
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 26px 26px;
+}
+
+.orbital-cluster-summary-tooltip strong,
+.orbital-cluster-ring-tooltip strong {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.orbital-cluster-core-hit:hover .orbital-cluster-summary-tooltip,
+.orbital-cluster-core-hit:focus-visible .orbital-cluster-summary-tooltip,
+.orbital-cluster-lane:has(.orbital-cluster-ring-hit:hover) .orbital-cluster-ring-tooltip,
+.orbital-cluster-lane:has(.orbital-cluster-ring-hit:focus-visible) .orbital-cluster-ring-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(var(--orbit-inverse-scale, 1));
+}
+
+.orbital-cluster-core-hit:hover .orbital-cluster-summary-tooltip,
+.orbital-cluster-core-hit:focus-visible .orbital-cluster-summary-tooltip {
+  transform: translate(-50%, 0) scale(var(--orbit-core-inverse-scale, 1));
+}
+
+.orbital-cluster-ring-hit {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.orbital-cluster-ring-hit circle {
+  cursor: help;
+  pointer-events: stroke;
+}
+
+.orbital-cluster-ring-tooltip {
+  top: -2px;
+  bottom: auto;
 }
 
 .orbital-cluster-lane {
@@ -97,7 +311,9 @@
 }
 
 .orbital-cluster-lane:has(.orbital-cluster-vehicle:hover),
-.orbital-cluster-lane:has(.orbital-cluster-vehicle:focus-visible) {
+.orbital-cluster-lane:has(.orbital-cluster-vehicle:focus-visible),
+.orbital-cluster-lane:has(.orbital-cluster-ring-hit:hover),
+.orbital-cluster-lane:has(.orbital-cluster-ring-hit:focus-visible) {
   z-index: 1000;
 }
 
@@ -246,6 +462,7 @@
 }
 
 .orbital-cluster:hover .orbital-cluster-ring-path,
+.orbital-cluster-lane:has(.orbital-cluster-ring-hit:hover) .orbital-cluster-ring-path,
 .orbital-cluster:focus-within .orbital-cluster-ring-path {
   animation-play-state: paused;
 }

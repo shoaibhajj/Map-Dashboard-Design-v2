@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { Vehicle } from '../data/vehicles'
 import type { VehicleClusterSlice } from '../utils/vehicleClustering'
 
@@ -11,6 +11,9 @@ interface Props {
   count: number
   slices: VehicleClusterSlice[]
   members: OrbitingClusterMember[]
+  clusterVehicles: Vehicle[]
+  statusColors: Record<string, string>
+  clusterLabel: string
   zoom: number
   lang: 'en' | 'ar'
   onClusterClick: () => void
@@ -19,9 +22,10 @@ interface Props {
 
 const FIRST_ORBIT_RADIUS = 54
 const ORBIT_GAP = 42
-const MIN_CLUSTER_SIZE = 72
+const MIN_CLUSTER_SIZE = 22
 const MAX_CLUSTER_SIZE = 260
-const MIN_CLUSTER_ZOOM = 4
+const MIN_CLUSTER_ZOOM = 0
+const COUNTRY_ZOOM = 4
 const MAX_CLUSTER_ZOOM = 12
 
 function getBaseOrbitalClusterSize(ringCount: number) {
@@ -31,8 +35,10 @@ function getBaseOrbitalClusterSize(ringCount: number) {
 
 export function getOrbitalClusterScale(ringCount: number, zoom: number) {
   const baseSize = getBaseOrbitalClusterSize(ringCount)
-  const zoomProgress = Math.max(0, Math.min(1, (zoom - MIN_CLUSTER_ZOOM) / (MAX_CLUSTER_ZOOM - MIN_CLUSTER_ZOOM)))
-  const zoomSize = MIN_CLUSTER_SIZE + zoomProgress * (MAX_CLUSTER_SIZE - MIN_CLUSTER_SIZE)
+  const normalizedZoom = Math.max(MIN_CLUSTER_ZOOM, Math.min(MAX_CLUSTER_ZOOM, zoom))
+  const zoomSize = normalizedZoom <= COUNTRY_ZOOM
+    ? 34 + (normalizedZoom / COUNTRY_ZOOM) * (72 - 34)
+    : 72 + ((normalizedZoom - COUNTRY_ZOOM) / (MAX_CLUSTER_ZOOM - COUNTRY_ZOOM)) * (MAX_CLUSTER_SIZE - 72)
   return Math.min(1, zoomSize / baseSize)
 }
 
@@ -45,6 +51,14 @@ function statusLabel(vehicle: Vehicle, lang: 'en' | 'ar') {
   if (vehicle.status === 'moving') return lang === 'ar' ? 'متحركة' : 'Moving'
   if (vehicle.status === 'idle') return lang === 'ar' ? 'متوقفة' : 'Idle'
   return lang === 'ar' ? 'غير متصلة' : 'Offline'
+}
+
+function sliceLabel(slice: VehicleClusterSlice, lang: 'en' | 'ar') {
+  if (slice.kind === 'moving') return lang === 'ar' ? 'متحركة' : 'Moving'
+  if (slice.kind === 'idle') return lang === 'ar' ? 'متوقفة' : 'Idle'
+  if (slice.kind === 'offline') return lang === 'ar' ? 'غير متصلة' : 'Offline'
+  if (slice.kind === 'towing') return lang === 'ar' ? 'مسحوبة' : 'Towed'
+  return slice.label
 }
 
 function OrbitTooltip({ vehicle, lang }: { vehicle: Vehicle; lang: 'en' | 'ar' }) {
@@ -63,7 +77,9 @@ function OrbitTooltip({ vehicle, lang }: { vehicle: Vehicle; lang: 'en' | 'ar' }
   )
 }
 
-export default function VehicleClusterMarker({ count, slices, members, zoom, lang, onClusterClick, onVehicleSelect }: Props) {
+export default function VehicleClusterMarker({ count, slices, members, clusterVehicles, statusColors, clusterLabel, zoom, lang, onClusterClick, onVehicleSelect }: Props) {
+  const [showVehicleList, setShowVehicleList] = useState(false)
+  const compact = zoom >= 3 && zoom < 5
   const scale = getOrbitalClusterScale(slices.length, zoom)
   const size = getOrbitalClusterSize(slices.length, zoom)
   const center = size / 2
@@ -72,21 +88,79 @@ export default function VehicleClusterMarker({ count, slices, members, zoom, lan
     slice,
     radius: FIRST_ORBIT_RADIUS + index * ORBIT_GAP,
     vehicles: members.filter(member => member.bucketIndex === slice.bucketIndex),
-  })).filter(group => group.vehicles.length > 0)
+  }))
 
+  const coreScale = Math.max(0.42, Math.min(1, size / 44))
+  const statusGroups = [
+    { key: 'moving', color: statusColors.moving ?? '#16a34a', vehicles: clusterVehicles.filter(vehicle => !vehicle.telemetry.towing && vehicle.status === 'moving') },
+    { key: 'idle', color: statusColors.idle ?? '#f97316', vehicles: clusterVehicles.filter(vehicle => !vehicle.telemetry.towing && vehicle.status === 'idle') },
+    { key: 'offline', color: statusColors.offline ?? '#64748b', vehicles: clusterVehicles.filter(vehicle => !vehicle.telemetry.towing && vehicle.status === 'offline') },
+    { key: 'towed', color: statusColors.towed ?? '#f59e0b', vehicles: clusterVehicles.filter(vehicle => vehicle.telemetry.towing) },
+  ].filter(group => group.vehicles.length > 0)
+  const compactCircumference = 2 * Math.PI * 22
+  let consumedLength = 0
   return (
-    <div className="orbital-cluster" style={{ width: size, height: size }} role="group" aria-label={lang === 'ar' ? `مجموعة تضم ${totalLabel} مركبة` : `Cluster of ${totalLabel} vehicles`}>
+    <div className="orbital-cluster" style={{
+      width: size,
+      height: size,
+      '--orbit-scale': scale,
+      '--orbit-inverse-scale': 1 / scale,
+      '--orbit-core-scale': coreScale,
+      '--orbit-core-inverse-scale': 1 / coreScale,
+    } as CSSProperties} role="group" aria-label={lang === 'ar' ? `مجموعة تضم ${totalLabel} مركبة` : `Cluster of ${totalLabel} vehicles`}>
       <button
         type="button"
-        className="orbital-cluster-core-hit"
+        className={`orbital-cluster-core-hit${compact ? ' is-compact' : ''}${showVehicleList ? ' has-vehicle-list' : ''}`}
+        onMouseEnter={() => compact && setShowVehicleList(true)}
+        onMouseLeave={() => setShowVehicleList(false)}
+        onFocus={() => compact && setShowVehicleList(true)}
+        onBlur={() => setShowVehicleList(false)}
         onClick={event => {
           event.stopPropagation()
           onClusterClick()
         }}
-        aria-label={lang === 'ar' ? `تكبير مجموعة تضم ${totalLabel} مركبة` : `Zoom into cluster of ${totalLabel} vehicles`}
-      />
+        aria-label={lang === 'ar' ? `تكبير ${clusterLabel} تضم ${totalLabel} مركبة` : `Zoom into ${clusterLabel}, ${totalLabel} vehicles`}
+      >
+        {compact && showVehicleList ? (
+          <span className="orbital-cluster-vehicle-list" role="tooltip" dir={lang === 'ar' ? 'rtl' : 'ltr'} onClick={event => event.stopPropagation()} onWheel={event => event.stopPropagation()}>
+            <strong>{lang === 'ar' ? `${totalLabel} مركبة` : `${totalLabel} vehicles`}</strong>
+            <span className="orbital-cluster-vehicle-list-rows">
+              <span className="orbital-cluster-vehicle-list-heading">
+                <span>{lang === 'ar' ? 'المركبة' : 'Vehicle'}</span>
+                <span>{lang === 'ar' ? 'السرعة' : 'Speed'}</span>
+                <span>{lang === 'ar' ? 'آخر تحديث' : 'Last update'}</span>
+              </span>
+              {clusterVehicles.map(vehicle => {
+                const isTowed = Boolean(vehicle.telemetry.towing)
+                const color = isTowed ? statusColors.towed : statusColors[vehicle.status]
+                return <span className="orbital-cluster-vehicle-list-row" key={vehicle.id} style={{ '--vehicle-status-color': color ?? '#64748b' } as CSSProperties}>
+                  <span className="orbital-cluster-vehicle-list-name" title={vehicle.name}><i />{vehicle.name}</span>
+                  <span className="orbital-cluster-vehicle-list-speed">{vehicle.speed} km/h</span>
+                  <span className="orbital-cluster-vehicle-list-update">{vehicle.lastUpdate || (lang === 'ar' ? 'غير متاح' : 'Unavailable')}</span>
+                </span>
+              })}
+            </span>
+          </span>
+        ) : (
+          <span className="orbital-cluster-summary-tooltip" role="tooltip" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <strong>{clusterLabel}</strong>
+            <span>{lang === 'ar' ? `المجموع: ${totalLabel} مركبة` : `Total: ${totalLabel} vehicles`}</span>
+            {slices.map(slice => <span key={slice.key}>{sliceLabel(slice, lang)}: {slice.count}</span>)}
+          </span>
+        )}
+      </button>
 
-      {groups.map(({ slice, radius, vehicles }, ringIndex) => {
+      {compact && <svg className="orbital-cluster-compact-ring" viewBox="0 0 52 52" aria-hidden="true">
+        <circle className="orbital-cluster-compact-track" cx="26" cy="26" r="22" />
+        {statusGroups.map(group => {
+          const length = Math.max(0, compactCircumference * group.vehicles.length / Math.max(1, clusterVehicles.length) - 2)
+          const offset = -consumedLength
+          consumedLength += compactCircumference * group.vehicles.length / Math.max(1, clusterVehicles.length)
+          return <circle key={group.key} className="orbital-cluster-compact-segment" cx="26" cy="26" r="22" stroke={group.color} strokeDasharray={`${length} ${compactCircumference}`} strokeDashoffset={offset} />
+        })}
+      </svg>}
+
+      {!compact && groups.map(({ slice, radius, vehicles }, ringIndex) => {
         const laneStyle = {
           left: `${center}px`,
           top: `${center}px`,
@@ -109,6 +183,13 @@ export default function VehicleClusterMarker({ count, slices, members, zoom, lan
           >
             <div className="orbital-cluster-rotor">
               <span className="orbital-cluster-ring-path" />
+              <svg className="orbital-cluster-ring-hit" viewBox={`0 0 ${radius * 2} ${radius * 2}`} aria-label={lang === 'ar' ? `${sliceLabel(slice, lang)}: ${slice.count} مركبة` : `${sliceLabel(slice, lang)}: ${slice.count} vehicles`}>
+                <circle cx={radius} cy={radius} r={radius - 2} fill="none" stroke="transparent" strokeWidth="18" pointerEvents="stroke" />
+              </svg>
+              <span className="orbital-cluster-ring-tooltip" role="tooltip" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                <strong>{sliceLabel(slice, lang)}</strong>
+                <span>{lang === 'ar' ? `${slice.count} مركبة` : `${slice.count} vehicles`}</span>
+              </span>
               {vehicles.map(({ vehicle, bucketIndex }, index) => {
                 const phase = (index / Math.max(1, vehicles.length)) * 360 + ringIndex * 137.5
                 const nodeStyle = {

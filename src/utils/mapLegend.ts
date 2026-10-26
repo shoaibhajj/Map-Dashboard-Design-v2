@@ -84,15 +84,16 @@ export interface MapLegendConfig {
   ranges: MapColorRange[];
   noDataColor: string;
   clusterGrouping: ClusterGroupingMode;
+  clusteringEnabled: boolean;
   clusterZoomSettings: ClusterZoomSettings;
 }
 
 const STORAGE_KEY = "fleet-map-legend-settings-v1";
 export const DEFAULT_FUEL_TANK_CAPACITY_LITERS = 70;
 export const DEFAULT_CLUSTER_ZOOM_SETTINGS: ClusterZoomSettings = {
-  countryMaxZoom: 6,
-  regionMaxZoom: 8,
-  sectorMaxZoom: 10,
+  countryMaxZoom: 3,
+  regionMaxZoom: 10,
+  sectorMaxZoom: 11,
   neighborhoodMaxZoom: 12,
   distanceRanges: [
     { maxZoom: 6, radiusKm: 220 },
@@ -294,7 +295,8 @@ export const DEFAULT_MAP_LEGEND: MapLegendConfig = {
   },
   ranges: [],
   noDataColor: "#94a3b8",
-  clusterGrouping: "distance",
+  clusterGrouping: "administrative",
+  clusteringEnabled: true,
   clusterZoomSettings: DEFAULT_CLUSTER_ZOOM_SETTINGS,
 };
 
@@ -660,6 +662,7 @@ export function readMapLegendConfig(): MapLegendConfig {
           : activeMetricRanges ?? [],
       clusterGrouping:
         parsed.clusterGrouping === "distance" ? "distance" : "administrative",
+      clusteringEnabled: parsed.clusteringEnabled !== false,
       clusterZoomSettings: normalizeClusterZoomSettings(
         parsed.clusterZoomSettings
       ),
