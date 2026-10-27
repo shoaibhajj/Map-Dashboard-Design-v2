@@ -1,0 +1,159 @@
+/**
+ * vehicle-markers.css — GPS / IoT Vehicle Marker Theming & External Selection States
+ * 
+ * Complies with context/design/BRAND.md:
+ * - Dynamic color theme via --marker-color (defaults to --primary or mint/emerald)
+ * - Dark & light mode auto-adaptation
+ * - External selection / focus / hover states (NO hardcoded brackets inside the SVGs)
+ */
+
+/* ── Base Marker Wrapper ────────────────────────────────────────────── */
+.vehicle-marker-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  cursor: pointer;
+  outline: none;
+  border-radius: 8px;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), filter 0.22s ease;
+  
+  /* Fallback theme variables if not inherited */
+  --marker-color: var(--primary, #22c55e);
+  --marker-color-light: var(--primary-light, #5eedc5);
+  --marker-color-dark: #168056;
+  --marker-color-deep: #0f5c3d;
+  --marker-shadow-color: rgba(0, 0, 0, 0.38);
+}
+
+/* Light mode defaults */
+:root {
+  --marker-body-highlight: #ffffff;
+  --marker-body-light: #eaf3f5;
+  --marker-body-mid: #c1d5db;
+  --marker-body-dark: #8ba5ac;
+  --marker-chassis-side: #58747c;
+  --marker-glass-deep: #0b252c;
+  --marker-glass-mid: #133f4a;
+  --marker-glass-base: #071c22;
+  --marker-stroke: #e4f6f8;
+}
+
+/* Dark mode auto-adaptation */
+.dark .vehicle-marker-wrapper,
+[data-theme="dark"] .vehicle-marker-wrapper,
+.vehicle-marker-wrapper.dark {
+  --marker-body-highlight: #e4eff1;
+  --marker-body-light: #b9ced4;
+  --marker-body-mid: #7e9ca4;
+  --marker-body-dark: #4f6b72;
+  --marker-chassis-side: #395056;
+  --marker-glass-deep: #06171c;
+  --marker-glass-mid: #0b262d;
+  --marker-glass-base: #040e11;
+  --marker-stroke: #bad2d7;
+  --marker-shadow-color: rgba(0, 0, 0, 0.65);
+}
+
+/* ── Interactive Hover State ────────────────────────────────────────── */
+.vehicle-marker-wrapper:hover {
+  transform: translateY(-2px) scale(1.06);
+  filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--marker-color) 45%, transparent));
+}
+
+/* ── Keyboard Focus State ───────────────────────────────────────────── */
+.vehicle-marker-wrapper:focus-visible {
+  outline: 2px solid var(--marker-color);
+  outline-offset: 4px;
+}
+
+/* ── External Selected State (HUD Corner Brackets Overlay) ──────────── */
+/* Added outside or on top of the SVG without altering the SVG markup    */
+.vehicle-marker-wrapper.is-selected {
+  z-index: 10;
+}
+
+/* Top-Left & Bottom-Right Corner Brackets */
+.vehicle-marker-wrapper.is-selected::before,
+.vehicle-marker-wrapper.is-selected::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  width: 13px;
+  height: 13px;
+  border-color: var(--marker-color);
+  border-style: solid;
+  border-width: 0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: marker-bracket-glow 2.4s ease-in-out infinite alternate;
+}
+
+.vehicle-marker-wrapper.is-selected::before {
+  top: -6px;
+  left: -6px;
+  border-top-width: 2.5px;
+  border-left-width: 2.5px;
+  border-top-left-radius: 4px;
+}
+
+.vehicle-marker-wrapper.is-selected::after {
+  bottom: -6px;
+  right: -6px;
+  border-bottom-width: 2.5px;
+  border-right-width: 2.5px;
+  border-bottom-right-radius: 4px;
+}
+
+/* Companion Top-Right & Bottom-Left Brackets via an external overlay element */
+.vehicle-marker-hud-frame {
+  position: absolute;
+  inset: -6px;
+  pointer-events: none;
+  border-radius: 6px;
+}
+
+.vehicle-marker-wrapper.is-selected .vehicle-marker-hud-frame::before,
+.vehicle-marker-wrapper.is-selected .vehicle-marker-hud-frame::after {
+  content: '';
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-color: var(--marker-color);
+  border-style: solid;
+  border-width: 0;
+  animation: marker-bracket-glow 2.4s ease-in-out infinite alternate;
+}
+
+.vehicle-marker-wrapper.is-selected .vehicle-marker-hud-frame::before {
+  top: 0;
+  right: 0;
+  border-top-width: 2.5px;
+  border-right-width: 2.5px;
+  border-top-right-radius: 4px;
+}
+
+.vehicle-marker-wrapper.is-selected .vehicle-marker-hud-frame::after {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 2.5px;
+  border-left-width: 2.5px;
+  border-bottom-left-radius: 4px;
+}
+
+/* Subtle Breathing Pulse Glow on Selection */
+@keyframes marker-bracket-glow {
+  0% {
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--marker-color) 40%, transparent));
+    opacity: 0.85;
+  }
+  100% {
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--marker-color) 80%, transparent));
+    opacity: 1;
+  }
+}
+
+/* Active Moving Pulse Effect (Optional IoT Telemetry Signal) */
+.vehicle-marker-wrapper.is-moving::after {
+  /* Retains heading orientation without wobble */
+}

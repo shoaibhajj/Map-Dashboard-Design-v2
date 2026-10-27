@@ -8,6 +8,7 @@ import { MAPBOX_TOKEN } from '../config/mapbox'
 import { getVehicleMapColor, type MapLegendConfig } from '../utils/mapLegend'
 import { useLanguage } from '../contexts/LanguageContext'
 import VehicleClusterMarker, { getOrbitalClusterSize, type OrbitingClusterMember } from './VehicleClusterMarker'
+import { buildVehicleMarkerHTML } from '../vehicles/components/vehicleMarkerSVG'
 import '../styles/orbital-vehicle-cluster.css'
 import {
   createVehicleClusterData,
@@ -114,79 +115,37 @@ function bearingAt(coords: [number, number][], t: number): number {
   return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360
 }
 
-// ── MDI vehicle icon paths (Material Design Icons, Apache 2.0) ────────────────
-// Source: cdn.jsdelivr.net/npm/@mdi/svg/svg/{name}.svg
-// Icons: car-side (sedan), van-passenger (van), truck-delivery (truck), motorbike
-const MDI: Record<string, string> = {
-  car: 'M16,6L19,10H21C22.11,10 23,10.89 23,12V15H21A3,3 0 0,1 18,18A3,3 0 0,1 15,15H9A3,3 0 0,1 6,18A3,3 0 0,1 3,15H1V12C1,10.89 1.89,10 3,10L6,6H16M10.5,7.5H6.75L4.86,10H10.5V7.5M12,7.5V10H17.14L15.25,7.5H12M6,13.5A1.5,1.5 0 0,0 4.5,15A1.5,1.5 0 0,0 6,16.5A1.5,1.5 0 0,0 7.5,15A1.5,1.5 0 0,0 6,13.5M18,13.5A1.5,1.5 0 0,0 16.5,15A1.5,1.5 0 0,0 18,16.5A1.5,1.5 0 0,0 19.5,15A1.5,1.5 0 0,0 18,13.5Z',
-  van: 'M3,7C1.89,7 1,7.89 1,9V17H3A3,3 0 0,0 6,20A3,3 0 0,0 9,17H15A3,3 0 0,0 18,20A3,3 0 0,0 21,17H23V13C23,11.89 22.11,11 21,11L18,7H3M3,8.5H7V11H3V8.5M9,8.5H13V11H9V8.5M15,8.5H17.5L19.46,11H15V8.5M6,15.5A1.5,1.5 0 0,1 7.5,17A1.5,1.5 0 0,1 6,18.5A1.5,1.5 0 0,1 4.5,17A1.5,1.5 0 0,1 6,15.5M18,15.5A1.5,1.5 0 0,1 19.5,17A1.5,1.5 0 0,1 18,18.5A1.5,1.5 0 0,1 16.5,17A1.5,1.5 0 0,1 18,15.5Z',
-  truck: 'M3,4A2,2 0 0,0 1,6V17H3A3,3 0 0,0 6,20A3,3 0 0,0 9,17H15A3,3 0 0,0 18,20A3,3 0 0,0 21,17H23V12L20,8H17V4M10,6L14,10L10,14V11H4V9H10M17,9.5H19.5L21.47,12H17M6,15.5A1.5,1.5 0 0,1 7.5,17A1.5,1.5 0 0,1 6,18.5A1.5,1.5 0 0,1 4.5,17A1.5,1.5 0 0,1 6,15.5M18,15.5A1.5,1.5 0 0,1 19.5,17A1.5,1.5 0 0,1 18,18.5A1.5,1.5 0 0,1 16.5,17A1.5,1.5 0 0,1 18,15.5Z',
-  motorcycle: 'M17.42,10L13.41,6H9V8H12.59L14.59,10H6.5C4,10 2,12 2,14.5C2,17 4,19 6.5,19C8.72,19 10.56,17.38 10.92,15.27L13.04,14C13,14.17 13,14.33 13,14.5C13,17 15,19 17.5,19C20,19 22,17 22,14.5C22,12 20,10 17.5,10M8.84,15.26C8.5,16.27 7.58,17 6.47,17C5.09,17 3.97,15.88 3.97,14.5C3.97,13.12 5.09,12 6.47,12C7.59,12 8.5,12.74 8.84,13.75H6V15.25L8.84,15.26M17.47,17C16.09,17 14.97,15.88 14.97,14.5C14.97,13.12 16.09,12 17.47,12A2.5,2.5 0 0,1 19.97,14.5A2.5,2.5 0 0,1 17.47,17Z',
+// ── Vehicle marker 2.5D builder ──────────────────────────────────────────────
+// Uses the approved 2.5D silhouettes (Car, Van, Bus, Truck, Bike) and Far Arrow.
+// Color reacts dynamically to active theme (--marker-color) and status color.
+// Selection is handled externally via HUD brackets (.is-selected).
+function getInitialVehicleHeading(v: Vehicle): number {
+  if (v.heading !== undefined) return v.heading
+  const route = VEHICLE_ROUTES[v.id]?.out ?? v.mapRoute
+  if (route && route.length >= 2) {
+    return bearingAt(route, 0)
+  }
+  return 0
 }
 
-// ── Vehicle marker badge builder ──────────────────────────────────────────────
-// Uses MDI pre-built icon paths (not custom artwork).
-// The bearing arrow (.bearing-arrow group) is updated each RAF frame via DOM
-// mutation (setRotation isn't used — the icon stays upright in viewport space).
-// Status glow uses SMIL animation for moving vehicles (no JS needed).
-//
-// Badge layout (56×72 viewBox, anchor: center at 28,36):
-//   • Outer glow ellipse  cy=60  (SMIL animated for moving)
-//   • Drop shadow          cy=62
-//   • Badge circle         cx=28 cy=28 r=22
-//   • Status border ring   stroke=${color}
-//   • MDI icon path        translate(12,12) scale(1.33)
-//   • Bearing arrow        .bearing-arrow group, rotate around (28,28)
-//   • Selected ring        outer halo
-function buildMarkerSVG(vehicle: Vehicle, selected: boolean, darkMode: boolean, color: string): string {
-  const moving  = vehicle.status === 'moving'
-  const iconKey = vehicle.vehicleType === 'truck' ? 'truck'
-                : vehicle.vehicleType === 'van'   ? 'van'
-                : vehicle.vehicleType === 'motorcycle' ? 'motorcycle'
-                : 'car'
-  const iconPath = MDI[iconKey]
-  const bg        = darkMode ? '#1e293b' : '#ffffff'
-  const iconColor = darkMode ? '#e2e8f0' : '#1e293b'
-
-  // SMIL pulse animation on glow ellipse axes + opacity (moving only)
-  const pulseRx  = moving ? `<animate attributeName="rx" values="16;26;16" dur="1.8s" repeatCount="indefinite"/>` : ''
-  const pulseRy  = moving ? `<animate attributeName="ry" values="3;5;3"    dur="1.8s" repeatCount="indefinite"/>` : ''
-  const pulseOp  = moving ? `<animate attributeName="opacity" values="0.3;0.7;0.3" dur="1.8s" repeatCount="indefinite"/>` : ''
-
-  // Outer halo for selected marker
-  const selectedRing = selected
-    ? `<circle cx="28" cy="28" r="26" fill="none" stroke="${color}" stroke-width="2.5" opacity="0.55" stroke-dasharray="4 3"/>`
-    : ''
-
-  // The bearing arrow sits just outside the top edge of the badge circle.
-  // Default rotation=0 → points north (map up). Updated each RAF frame via DOM.
-  // Using class="bearing-arrow" for querySelector targeting.
-  const arrow = moving
-    ? `<g class="bearing-arrow" transform="rotate(0,28,28)">
-        <polygon points="28,3 23.5,11.5 28,9.5 32.5,11.5" fill="${color}" opacity="0.92"/>
-        <polygon points="28,3 23.5,11.5 28,9.5 32.5,11.5" fill="white" opacity="0.22"/>
-       </g>`
-    : ''
-
-  return `<svg width="56" height="72" viewBox="0 0 56 72" xmlns="http://www.w3.org/2000/svg">
-<!-- outer glow ring (animated for moving vehicles) -->
-<ellipse cx="28" cy="60" rx="16" ry="3" fill="${color}" opacity="0.4">${pulseRx}${pulseRy}${pulseOp}</ellipse>
-<!-- drop shadow -->
-<ellipse cx="29" cy="62" rx="20" ry="3.8" fill="rgba(0,0,0,0.2)"/>
-<!-- selected halo -->
-${selectedRing}
-<!-- badge background -->
-<circle cx="28" cy="28" r="22" fill="${bg}" filter="drop-shadow(0 2px 6px rgba(0,0,0,0.18))"/>
-<!-- status border ring -->
-<circle cx="28" cy="28" r="22" fill="none" stroke="${color}" stroke-width="2.8"/>
-<!-- MDI vehicle icon (Apache 2.0 · material.io/design) centered inside badge -->
-<g transform="translate(12,12) scale(1.33)">
-  <path d="${iconPath}" fill="${iconColor}"/>
-</g>
-<!-- bearing arrow (DOM-mutated each frame for moving vehicles) -->
-${arrow}
-</svg>`
+function buildMarkerSVG(
+  vehicle: Vehicle,
+  selected: boolean,
+  darkMode: boolean,
+  color: string,
+  isFar: boolean = false,
+  heading: number = 0
+): string {
+  return buildVehicleMarkerHTML({
+    type: vehicle.vehicleType,
+    isFar,
+    darkMode,
+    themeColor: color,
+    heading,
+    selected,
+  })
 }
+
 
 // ── Route layer helpers ───────────────────────────────────────────────────────
 const SRC_OUT = 'fleet-route-out'
@@ -217,10 +176,10 @@ function getClusterFeatureSignature(data: ReturnType<typeof createVehicleCluster
   ]))
 }
 
-function getClusterPositionSnapshot(vehicles: Vehicle[], positions: Map<string, [number, number]>) {
+function getClusterPositionSnapshot(vehicles: Vehicle[], positions: Map<string, [number, number]>): Map<string, [number, number]> {
   return new Map(vehicles.map(vehicle => [
     vehicle.id,
-    positions.get(vehicle.id) ?? [vehicle.lng, vehicle.lat],
+    (positions.get(vehicle.id) ?? [vehicle.lng, vehicle.lat]) as [number, number],
   ]))
 }
 
@@ -412,8 +371,11 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
   const langRef = useRef(lang)
   langRef.current = lang
 
+  const vehicleHeadingsRef = useRef<Map<string, number>>(new Map())
   const [mapLoaded,     setMapLoaded]     = useState(false)
   const [zoom,          setZoom]          = useState(DEFAULT_ZOOM)
+  const [isFarZoom,     setIsFarZoom]     = useState(DEFAULT_ZOOM < 13)
+  const isFarZoomRef                      = useRef(DEFAULT_ZOOM < 13)
   const [is3D,          setIs3D]          = useState(false)
   const [activeStyle,   setActiveStyle]   = useState<MapStyle>(darkMode ? 'dark' : 'streets')
   const [showStyleMenu, setShowStyleMenu] = useState(false)
@@ -477,8 +439,33 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     })
 
     mapRef.current = map
+    const handleZoom = () => {
+      const z = map.getZoom()
+      const far = z < 13
+      if (far !== isFarZoomRef.current) {
+        isFarZoomRef.current = far
+        setIsFarZoom(far)
+      }
+    }
+    const updateAllMarkerRotations = () => {
+      const currentBearing = map.getBearing()
+      vehiclesRef.current.forEach(v => {
+        const marker = markersRef.current.get(v.id)
+        if (!marker) return
+        const geoHeading = vehicleHeadingsRef.current.get(v.id) ?? getInitialVehicleHeading(v)
+        const svgRot = ((geoHeading - currentBearing) + 360) % 360
+        const rotator = marker.getElement().querySelector('.vehicle-marker-rotator') as HTMLElement | null
+        if (rotator) rotator.style.transform = `rotate(${svgRot.toFixed(1)}deg)`
+      })
+    }
+
     map.on('load', () => { ensureRouteLayers(map); setMapLoaded(true) })
-    map.on('zoomend', () => setZoom(map.getZoom()))
+    map.on('zoom', handleZoom)
+    map.on('zoomend', () => {
+      setZoom(map.getZoom())
+      handleZoom()
+    })
+    map.on('rotate', updateAllMarkerRotations)
     map.on('click', () => onMapClickRef.current())
     map.on('dragstart', () => document.body.classList.add('is-map-dragging'))
     map.on('dragend', () => document.body.classList.remove('is-map-dragging'))
@@ -580,16 +567,23 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
         const pos     = interpolateRoute(route, prog)
         currentPositionsRef.current.set(v.id, pos)
         const geoBear = bearingAt(route, prog)
+        vehicleHeadingsRef.current.set(v.id, geoBear)
 
-        // SVG arrow rotation: geographic bearing corrected for map rotation
-        // so the arrow always points the correct geographic direction on-screen.
+        // SVG arrow / vehicle rotation: geographic bearing corrected for map rotation
+        // so the vehicle always points the correct geographic direction on-screen.
         const svgRot = ((geoBear - mapBearing) + 360) % 360
 
         const marker = markersRef.current.get(v.id)
         if (marker && updateVehicleMarkers && !hiddenClusterVehicleIdsRef.current.has(v.id)) {
           marker.setLngLat(pos)
-          const arrowEl = marker.getElement().querySelector('.bearing-arrow')
-          if (arrowEl) arrowEl.setAttribute('transform', `rotate(${svgRot.toFixed(1)},28,28)`)
+          const el = marker.getElement()
+          const rotator = el.querySelector('.vehicle-marker-rotator') as HTMLElement | null
+          if (rotator) {
+            rotator.style.transform = `rotate(${svgRot.toFixed(1)}deg)`
+          } else {
+            const arrowEl = el.querySelector('.bearing-arrow')
+            if (arrowEl) arrowEl.setAttribute('transform', `rotate(${svgRot.toFixed(1)},28,28)`)
+          }
         }
       })
 
@@ -647,9 +641,22 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     if (!mapRef.current || !mapLoaded) return
     const map = mapRef.current
 
+    const mapBearing = map.getBearing()
+
     vehicles.forEach(vehicle => {
       const selected = selectedVehicle?.id === vehicle.id
-      const svgStr   = buildMarkerSVG(vehicle, selected, darkMode, getVehicleMapColor(vehicle, mapLegend))
+      const geoHeading = vehicleHeadingsRef.current.get(vehicle.id) ?? getInitialVehicleHeading(vehicle)
+      vehicleHeadingsRef.current.set(vehicle.id, geoHeading)
+      const screenHeading = ((geoHeading - mapBearing) + 360) % 360
+
+      const svgStr = buildMarkerSVG(
+        vehicle,
+        selected,
+        darkMode,
+        getVehicleMapColor(vehicle, mapLegend),
+        isFarZoom,
+        screenHeading
+      )
 
       if (markersRef.current.has(vehicle.id)) {
         const marker = markersRef.current.get(vehicle.id)!
@@ -672,7 +679,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
           : [vehicle.lng, vehicle.lat]
 
         // rotationAlignment: 'viewport' keeps the badge upright as the map rotates.
-        // Bearing is communicated by the DOM-mutated SVG arrow, not marker rotation.
+        // Heading is applied to .vehicle-marker-rotator relative to viewport.
         const marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'viewport' })
           .setLngLat(initPos)
           .addTo(map)
@@ -684,7 +691,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     markersRef.current.forEach((marker, id) => {
       if (!vehicles.find(v => v.id === id)) { marker.remove(); markersRef.current.delete(id) }
     })
-  }, [vehicles, selectedVehicle, mapLoaded, darkMode, mapLegend])
+  }, [vehicles, selectedVehicle, mapLoaded, darkMode, mapLegend, isFarZoom])
 
   // Replace overlapping pins with interactive orbital summaries at cluster zooms.
   useEffect(() => {
@@ -833,10 +840,11 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
         if (Number.isFinite(id) && sourceId) unique.set(`${sourceId}:${id}`, { feature, sourceId })
       })
       const clusterBuckets = getVehicleClusterBuckets(vehiclesRef.current, mapLegendRef.current)
+      const bounds = map.getBounds()
       const summaries = [...unique.values()]
         .map(({ feature, sourceId }) => ({ sourceId, summary: getVehicleClusterSummary(feature, vehiclesRef.current, mapLegendRef.current, clusterBuckets) }))
         .filter((item): item is { sourceId: string; summary: VehicleClusterSummary } =>
-          item.summary !== null && map.getBounds().contains(item.summary.coordinates),
+          item.summary !== null && Boolean(bounds?.contains(item.summary.coordinates)),
         )
       const snapshotSignature = JSON.stringify([
         clusterDataRevisionRef.current,

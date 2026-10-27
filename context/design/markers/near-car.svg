@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 76" width="56" height="76" role="img" aria-label="Car Near Marker 2.5D">
+  <defs>
+    <linearGradient id="car-body-grad" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0%" stop-color="var(--marker-body-highlight, #ffffff)"/>
+      <stop offset="35%" stop-color="var(--marker-body-light, #eaf3f5)"/>
+      <stop offset="70%" stop-color="var(--marker-body-mid, #c1d5db)"/>
+      <stop offset="100%" stop-color="var(--marker-body-dark, #8ba5ac)"/>
+    </linearGradient>
+    <linearGradient id="car-glass-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--marker-glass-deep, #0b252c)"/>
+      <stop offset="50%" stop-color="var(--marker-glass-mid, #133f4a)"/>
+      <stop offset="100%" stop-color="var(--marker-glass-base, #071c22)"/>
+    </linearGradient>
+    <linearGradient id="car-roof-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="var(--marker-roof-top, #d5e6ea)"/>
+      <stop offset="100%" stop-color="var(--marker-roof-base, #9cb7be)"/>
+    </linearGradient>
+    <filter id="car-shadow" x="-35%" y="-30%" width="170%" height="170%">
+      <feDropShadow dx="2" dy="5" stdDeviation="4" flood-color="var(--marker-shadow-color, rgba(0,0,0,0.4))"/>
+    </filter>
+    <filter id="car-beacon-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="var(--marker-color, #22c55e)" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+  <style>
+    :root, svg {
+      --marker-color: #22c55e;
+      --marker-color-light: #5eedc5;
+      --marker-body-highlight: #ffffff;
+      --marker-body-light: #eaf3f5;
+      --marker-body-mid: #c1d5db;
+      --marker-body-dark: #8ba5ac;
+      --marker-chassis-side: #58747c;
+      --marker-roof-top: #d5e6ea;
+      --marker-roof-base: #9cb7be;
+      --marker-glass-deep: #0b252c;
+      --marker-glass-mid: #133f4a;
+      --marker-glass-base: #071c22;
+      --marker-stroke: #e4f6f8;
+      --marker-shadow-color: rgba(0, 0, 0, 0.4);
+    }
+    .dark svg, svg.dark, :root.dark svg {
+      --marker-body-highlight: #e4eff1;
+      --marker-body-light: #b9ced4;
+      --marker-body-mid: #7e9ca4;
+      --marker-body-dark: #4f6b72;
+      --marker-chassis-side: #395056;
+      --marker-roof-top: #9cb8be;
+      --marker-roof-base: #64828a;
+      --marker-glass-deep: #06171c;
+      --marker-glass-mid: #0b262d;
+      --marker-glass-base: #040e11;
+      --marker-stroke: #bad2d7;
+      --marker-shadow-color: rgba(0, 0, 0, 0.65);
+    }
+  </style>
+  <ellipse cx="29" cy="43" rx="19" ry="30" fill="var(--marker-shadow-color, rgba(0,0,0,0.4))" filter="url(#car-shadow)"/>
+  <rect x="9" y="19" width="3.5" height="10" rx="1.5" fill="#131e21"/>
+  <rect x="43.5" y="19" width="3.5" height="10" rx="1.5" fill="#131e21"/>
+  <rect x="9" y="48" width="3.5" height="10" rx="1.5" fill="#131e21"/>
+  <rect x="43.5" y="48" width="3.5" height="10" rx="1.5" fill="#131e21"/>
+  <path d="M11 26 L7 28 L8 31 L12 29 Z" fill="#648087"/>
+  <path d="M45 26 L49 28 L48 31 L44 29 Z" fill="#9db9bf"/>
+  <path d="M18 9 Q28 4 38 9 L44 20 L45 60 Q44 69 37 71 L19 71 Q12 69 11 60 L12 20 Z" fill="var(--marker-chassis-side, #58747c)"/>
+  <path d="M18 7 Q28 2 38 7 L43 18 L44 58 Q43 67 36 69 L20 69 Q13 67 12 58 L13 18 Z" fill="url(#car-body-grad)" stroke="var(--marker-stroke, #e4f6f8)" stroke-width="1.2"/>
+  <path d="M15 8 L21 9 L20 12 L14 10 Z" fill="var(--marker-color-light, #5eedc5)"/>
+  <path d="M41 8 L35 9 L36 12 L42 10 Z" fill="var(--marker-color-light, #5eedc5)"/>
+  <path d="M20 10 L21 20 M36 10 L35 20" stroke="var(--marker-body-mid, #c1d5db)" stroke-width="0.8" opacity="0.6"/>
+  <path d="M18 21 Q28 18 38 21 L40 31 Q28 29 16 31 Z" fill="url(#car-glass-grad)" stroke="#4a7c87" stroke-width="0.8"/>
+  <path d="M20 22 L24 21 L21 30 L18 30 Z" fill="#88cbda" opacity="0.55"/>
+  <path d="M16 31 Q28 29 40 31 L39 48 Q28 47 17 48 Z" fill="url(#car-roof-grad)" stroke="#bad9de" stroke-width="0.8"/>
+  <circle cx="28" cy="39" r="3.2" fill="#0c2930" stroke="var(--marker-color, #22c55e)" stroke-width="1"/>
+  <circle cx="28" cy="39" r="1.6" fill="var(--marker-color, #22c55e)" filter="url(#car-beacon-glow)"/>
+  <path d="M17 48 Q28 47 39 48 L38 57 Q28 58 18 57 Z" fill="url(#car-glass-grad)" stroke="#4a7c87" stroke-width="0.8"/>
+  <path d="M17 67 Q28 69 39 67" stroke="#ff4d6d" stroke-width="2" stroke-linecap="round"/>
+</svg>

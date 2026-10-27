@@ -115,6 +115,8 @@ const strings = {
     type_van: "Van",
     type_truck: "Truck",
     type_car: "Car",
+    type_bus: "Bus",
+    type_bike: "Bike",
     type_motorcycle: "Motorcycle",
     // Zones
     zone_downtown: "Downtown",
@@ -356,6 +358,8 @@ const strings = {
     type_van: "فان",
     type_truck: "شاحنة",
     type_car: "سيارة",
+    type_bus: "حافلة",
+    type_bike: "دراجة",
     type_motorcycle: "دراجة نارية",
     zone_downtown: "وسط المدينة",
     zone_north: "المنطقة الشمالية",

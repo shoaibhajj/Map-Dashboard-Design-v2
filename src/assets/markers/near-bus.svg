@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 128" width="64" height="128" role="img" aria-label="Bus Near Marker 2.5D">
+  <defs>
+    <!-- Bus Body Gradient with theme/mode variables -->
+    <linearGradient id="bus-body-grad" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0%" stop-color="var(--marker-body-highlight, #ffffff)"/>
+      <stop offset="40%" stop-color="var(--marker-body-light, #e1edf0)"/>
+      <stop offset="80%" stop-color="var(--marker-body-mid, #a8c1c8)"/>
+      <stop offset="100%" stop-color="var(--marker-body-dark, #739199)"/>
+    </linearGradient>
+
+    <!-- Panoramic Glass Gradient -->
+    <linearGradient id="bus-glass-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--marker-glass-deep, #0b252c)"/>
+      <stop offset="50%" stop-color="var(--marker-glass-mid, #133f4a)"/>
+      <stop offset="100%" stop-color="var(--marker-glass-base, #071c22)"/>
+    </linearGradient>
+
+    <!-- HVAC Units Gradient -->
+    <linearGradient id="bus-hvac-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="var(--marker-hvac-top, #8ba8b0)"/>
+      <stop offset="100%" stop-color="var(--marker-hvac-base, #68858d)"/>
+    </linearGradient>
+
+    <!-- 2.5D Drop Shadow -->
+    <filter id="bus-shadow" x="-35%" y="-25%" width="170%" height="160%">
+      <feDropShadow dx="2" dy="6" stdDeviation="4.5" flood-color="var(--marker-shadow-color, rgba(0,0,0,0.4))"/>
+    </filter>
+    <filter id="bus-beacon-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="var(--marker-color, #22c55e)" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+
+  <style>
+    :root, svg {
+      --marker-color: #22c55e;
+      --marker-color-light: #5eedc5;
+      --marker-body-highlight: #ffffff;
+      --marker-body-light: #e1edf0;
+      --marker-body-mid: #a8c1c8;
+      --marker-body-dark: #739199;
+      --marker-chassis-side: #4d6970;
+      --marker-hvac-top: #8ba8b0;
+      --marker-hvac-base: #68858d;
+      --marker-hvac-grille: #486870;
+      --marker-glass-deep: #0b252c;
+      --marker-glass-mid: #133f4a;
+      --marker-glass-base: #071c22;
+      --marker-stroke: #eaf8fa;
+      --marker-shadow-color: rgba(0, 0, 0, 0.4);
+    }
+    .dark svg, svg.dark, :root.dark svg {
+      --marker-body-highlight: #deebed;
+      --marker-body-light: #b0c5cb;
+      --marker-body-mid: #6f8d95;
+      --marker-body-dark: #455d64;
+      --marker-chassis-side: #2e4349;
+      --marker-hvac-top: #5e7980;
+      --marker-hvac-base: #425960;
+      --marker-hvac-grille: #2a3c41;
+      --marker-glass-deep: #06171c;
+      --marker-glass-mid: #0b262d;
+      --marker-glass-base: #040e11;
+      --marker-stroke: #abc5cb;
+      --marker-shadow-color: rgba(0, 0, 0, 0.65);
+    }
+  </style>
+
+  <!-- 2.5D Ground Shadow (Elongated) -->
+  <ellipse cx="35" cy="69" rx="23" ry="57" fill="var(--marker-shadow-color, rgba(0,0,0,0.4))" filter="url(#bus-shadow)"/>
+
+  <!-- 6 Wheels (Front single, Rear dual tandem axles) -->
+  <rect x="9.5" y="27" width="4" height="13" rx="2" fill="#131e21"/>
+  <rect x="50.5" y="27" width="4" height="13" rx="2" fill="#131e21"/>
+  <rect x="9.5" y="88" width="4" height="12" rx="1.5" fill="#131e21"/>
+  <rect x="50.5" y="88" width="4" height="12" rx="1.5" fill="#131e21"/>
+  <rect x="9.5" y="102" width="4" height="12" rx="1.5" fill="#131e21"/>
+  <rect x="50.5" y="102" width="4" height="12" rx="1.5" fill="#131e21"/>
+
+  <!-- Lower Body Bevel (2.5D Depth Extrusion) -->
+  <path d="M20 6 Q32 2 44 6 L50 15 V118 Q49 125 41 126 H23 Q15 125 14 118 V15 Z" fill="var(--marker-chassis-side, #4d6970)"/>
+
+  <!-- Main Upper Body Shell -->
+  <path d="M20 4 Q32 0 44 4 L49 13 V116 Q48 123 40 124 H24 Q16 123 15 116 V13 Z" fill="url(#bus-body-grad)" stroke="var(--marker-stroke, #eaf8fa)" stroke-width="1.3"/>
+
+  <!-- Front Headlights (Theme Tinted) & Destination Board -->
+  <rect x="18" y="4" width="7" height="3" rx="1" fill="var(--marker-color-light, #5eedc5)"/>
+  <rect x="39" y="4" width="7" height="3" rx="1" fill="var(--marker-color-light, #5eedc5)"/>
+  <rect x="25" y="5" width="14" height="2" fill="#0d2830"/>
+
+  <!-- Panoramic Front Windshield with Split Center Pillar -->
+  <path d="M18 14 Q32 10 46 14 L47 27 H17 Z" fill="url(#bus-glass-grad)" stroke="#4a7c87" stroke-width="1"/>
+  <line x1="32" y1="12" x2="32" y2="27" stroke="#1d3d44" stroke-width="1.2"/>
+  <path d="M21 13 L26 13 L21 26 L18 26 Z" fill="#88cbda" opacity="0.65"/>
+
+  <!-- Continuous Passenger Window Bays -->
+  <rect x="16" y="28" width="2.5" height="84" fill="#10323a"/>
+  <rect x="45.5" y="28" width="2.5" height="84" fill="#10323a"/>
+
+  <!-- Front HVAC Unit with Cooling Louvers -->
+  <rect x="22" y="33" width="20" height="23" rx="2.5" fill="url(#bus-hvac-grad)" stroke="#cde3e7" stroke-width="0.8"/>
+  <line x1="25" y1="39" x2="39" y2="39" stroke="var(--marker-hvac-grille, #486870)" stroke-width="1.2"/>
+  <line x1="25" y1="44" x2="39" y2="44" stroke="var(--marker-hvac-grille, #486870)" stroke-width="1.2"/>
+  <line x1="25" y1="49" x2="39" y2="49" stroke="var(--marker-hvac-grille, #486870)" stroke-width="1.2"/>
+
+  <!-- Emergency Escape Hatches -->
+  <rect x="25" y="61" width="14" height="11" rx="1.5" fill="#9db9bf" stroke="#cde3e7" stroke-width="0.8"/>
+
+  <!-- IoT Passenger Telematics Beacon Unit (Theme Color Active) -->
+  <circle cx="32" cy="77" r="3.2" fill="#0b282f" stroke="var(--marker-color, #22c55e)" stroke-width="1"/>
+  <circle cx="32" cy="77" r="1.6" fill="var(--marker-color, #22c55e)" filter="url(#bus-beacon-glow)"/>
+
+  <!-- Rear HVAC Unit with Cooling Louvers -->
+  <rect x="22" y="85" width="20" height="22" rx="2.5" fill="url(#bus-hvac-grad)" stroke="#cde3e7" stroke-width="0.8"/>
+  <line x1="25" y1="91" x2="39" y2="91" stroke="var(--marker-hvac-grille, #486870)" stroke-width="1.2"/>
+  <line x1="25" y1="96" x2="39" y2="96" stroke="var(--marker-hvac-grille, #486870)" stroke-width="1.2"/>
+  <line x1="25" y1="101" x2="39" y2="101" stroke="var(--marker-hvac-grille, #486870)" stroke-width="1.2"/>
+
+  <!-- Rear Engine Vents & Taillights -->
+  <line x1="21" y1="114" x2="43" y2="114" stroke="#1c363d" stroke-width="1.2"/>
+  <line x1="21" y1="117" x2="43" y2="117" stroke="#1c363d" stroke-width="1.2"/>
+  <line x1="21" y1="120" x2="43" y2="120" stroke="#1c363d" stroke-width="1.2"/>
+  <rect x="16" y="117" width="3" height="6" fill="#ff4d6d"/>
+  <rect x="45" y="117" width="3" height="6" fill="#ff4d6d"/>
+</svg>

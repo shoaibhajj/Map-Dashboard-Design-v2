@@ -4,6 +4,8 @@
 @import 'mapbox-gl/dist/mapbox-gl.css';
 @import 'tailwindcss';
 @import './styles/gps-cursors.css';
+@import './styles/vehicle-markers.css';
+
 
 @theme {
   --font-sans: 'Inter', system-ui, sans-serif;

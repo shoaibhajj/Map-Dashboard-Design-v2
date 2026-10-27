@@ -99,6 +99,8 @@ export default function AddVehicleModal({ groups, onClose, onAdd }: Props) {
                 <option value="truck">{t('type_truck')}</option>
                 <option value="van">{t('type_van')}</option>
                 <option value="car">{t('type_car')}</option>
+                <option value="bus">{t('type_bus')}</option>
+                <option value="bike">{t('type_bike')}</option>
                 <option value="motorcycle">{t('type_motorcycle')}</option>
               </select>
             </label>

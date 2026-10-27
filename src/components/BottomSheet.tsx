@@ -102,7 +102,7 @@ export default function BottomSheet({ vehicles, selectedVehicle, height, onHeigh
       : rawDisplay === 'row'
         ? activeVehicle?.rawDeviceData ? [[activeVehicle.name, activeVehicle.plate, activeVehicle.rawDeviceData.raw]] : []
         : rawRows.map(r => [r.name, r.time, r.vehicle, r.point, r.value, r.unit])
-    const csv = [header, ...data].map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\r\n')
+    const csv = [header, ...data].map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\r\n')
     const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
     const link = document.createElement('a'); link.href = url; link.download = view === 'status' ? 'fleet-status.csv' : rawDisplay === 'row' ? 'vehicle-row.csv' : 'gps-raw-data.csv'; link.click(); URL.revokeObjectURL(url)
   }

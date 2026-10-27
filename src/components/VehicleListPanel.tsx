@@ -363,7 +363,7 @@ export default function VehicleListPanel({ vehicles, groups: fleetGroups, filter
     const labels: Record<string, string> = {
       moving: t('status_moving'), idle: t('status_idle'), offline: t('status_offline'),
       selected: t('group_selected'), other: t('group_other'),
-      van: t('type_van'), truck: t('type_truck'), car: t('type_car'), motorcycle: t('type_motorcycle'),
+      van: t('type_van'), truck: t('type_truck'), car: t('type_car'), bus: t('type_bus'), bike: t('type_bike'), motorcycle: t('type_motorcycle'),
     }
     return labels[key] || key
   }
@@ -587,7 +587,7 @@ function VehicleStatusCard({ vehicle, now, selected, indicatorStyle, onSelect, o
   const driverDetail = telemetry.driverAuthorization === 'authorized' ? `${t('telemetry_authorized')} · ${vehicle.driver}` : telemetry.driverAuthorization === 'unauthorized' ? t('telemetry_unauthorized') : t('telemetry_no_driver')
   const waslTone: HealthTone = telemetry.waslState === 'connected' ? 'good' : telemetry.waslState === 'not_connected' ? 'bad' : 'muted'
   const waslStatusDetail = telemetry.waslState === 'connected' ? t('telemetry_compliant') : telemetry.waslState === 'not_connected' ? t('telemetry_not_connected') : t('telemetry_not_registered')
-  const waslDetail = [waslStatusDetail, ...timestampDetail(telemetry.waslUpdatedAt, lang, now, t)]
+  const waslDetail = [waslStatusDetail, ...timestampDetail(telemetry.waslUpdatedAt, lang, now, t)].filter(Boolean).join(' · ')
   const cameraTone: HealthTone = telemetry.cameraState === 'working' ? 'good' : telemetry.cameraState === 'not_working' ? 'bad' : 'muted'
   const cameraDetail = telemetry.cameraState === 'working' ? t('telemetry_working') : telemetry.cameraState === 'not_working' ? t('telemetry_not_working') : t('telemetry_not_installed')
 

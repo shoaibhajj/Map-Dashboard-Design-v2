@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 88" width="60" height="88" role="img" aria-label="Van Near Marker 2.5D">
+  <defs>
+    <linearGradient id="van-body-grad" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0%" stop-color="var(--marker-body-highlight, #fdfefe)"/>
+      <stop offset="35%" stop-color="var(--marker-body-light, #e3eef0)"/>
+      <stop offset="75%" stop-color="var(--marker-body-mid, #b6ccd2)"/>
+      <stop offset="100%" stop-color="var(--marker-body-dark, #809da4)"/>
+    </linearGradient>
+    <linearGradient id="van-glass-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--marker-glass-deep, #0b252c)"/>
+      <stop offset="50%" stop-color="var(--marker-glass-mid, #133f4a)"/>
+      <stop offset="100%" stop-color="var(--marker-glass-base, #071c22)"/>
+    </linearGradient>
+    <linearGradient id="van-roof-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--marker-roof-top, #cbe0e4)"/>
+      <stop offset="100%" stop-color="var(--marker-roof-base, #97b3ba)"/>
+    </linearGradient>
+    <filter id="van-shadow" x="-35%" y="-30%" width="170%" height="170%">
+      <feDropShadow dx="2" dy="5" stdDeviation="4.2" flood-color="var(--marker-shadow-color, rgba(0,0,0,0.4))"/>
+    </filter>
+    <filter id="van-beacon-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="var(--marker-color, #22c55e)" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+  <style>
+    :root, svg {
+      --marker-color: #22c55e;
+      --marker-color-light: #5eedc5;
+      --marker-body-highlight: #fdfefe;
+      --marker-body-light: #e3eef0;
+      --marker-body-mid: #b6ccd2;
+      --marker-body-dark: #809da4;
+      --marker-chassis-side: #526e76;
+      --marker-roof-top: #cbe0e4;
+      --marker-roof-base: #97b3ba;
+      --marker-glass-deep: #0b252c;
+      --marker-glass-mid: #133f4a;
+      --marker-glass-base: #071c22;
+      --marker-stroke: #e4f6f8;
+      --marker-rib-color: #90b1b8;
+      --marker-shadow-color: rgba(0, 0, 0, 0.4);
+    }
+    .dark svg, svg.dark, :root.dark svg {
+      --marker-body-highlight: #e0ecee;
+      --marker-body-light: #b4c9cf;
+      --marker-body-mid: #78969e;
+      --marker-body-dark: #49646b;
+      --marker-chassis-side: #354a50;
+      --marker-roof-top: #93afb5;
+      --marker-roof-base: #5d7981;
+      --marker-glass-deep: #06171c;
+      --marker-glass-mid: #0b262d;
+      --marker-glass-base: #040e11;
+      --marker-stroke: #b4cbd0;
+      --marker-rib-color: #557279;
+      --marker-shadow-color: rgba(0, 0, 0, 0.65);
+    }
+  </style>
+  <ellipse cx="31" cy="49" rx="21" ry="38" fill="var(--marker-shadow-color, rgba(0,0,0,0.4))" filter="url(#van-shadow)"/>
+  <rect x="8.5" y="21" width="3.5" height="11" rx="1.5" fill="#131e21"/>
+  <rect x="48" y="21" width="3.5" height="11" rx="1.5" fill="#131e21"/>
+  <rect x="8.5" y="63" width="3.5" height="11" rx="1.5" fill="#131e21"/>
+  <rect x="48" y="63" width="3.5" height="11" rx="1.5" fill="#131e21"/>
+  <path d="M19 8 Q30 4 41 8 L46 18 V78 Q45 84 39 85 H21 Q15 84 14 78 V18 Z" fill="var(--marker-chassis-side, #526e76)"/>
+  <path d="M19 6 Q30 2 41 6 L45 16 V76 Q44 82 38 83 H22 Q16 82 15 76 V16 Z" fill="url(#van-body-grad)" stroke="var(--marker-stroke, #e4f6f8)" stroke-width="1.2"/>
+  <rect x="16" y="7" width="7" height="3" rx="1" fill="var(--marker-color-light, #5eedc5)"/>
+  <rect x="37" y="7" width="7" height="3" rx="1" fill="var(--marker-color-light, #5eedc5)"/>
+  <path d="M18 18 Q30 16 42 18 L43 28 H17 Z" fill="url(#van-glass-grad)" stroke="#4a7c87" stroke-width="0.8"/>
+  <path d="M21 18 L26 18 L22 27 L18 27 Z" fill="#88cbda" opacity="0.55"/>
+  <rect x="17" y="29" width="26" height="47" rx="1" fill="url(#van-roof-grad)"/>
+  <line x1="19" y1="38" x2="41" y2="38" stroke="var(--marker-rib-color, #90b1b8)" stroke-width="1.5"/>
+  <line x1="19" y1="48" x2="41" y2="48" stroke="var(--marker-rib-color, #90b1b8)" stroke-width="1.5"/>
+  <line x1="19" y1="58" x2="41" y2="58" stroke="var(--marker-rib-color, #90b1b8)" stroke-width="1.5"/>
+  <line x1="19" y1="68" x2="41" y2="68" stroke="var(--marker-rib-color, #90b1b8)" stroke-width="1.5"/>
+  <rect x="26" y="31" width="8" height="4" rx="1.5" fill="#0d2830" stroke="var(--marker-color, #22c55e)" stroke-width="1"/>
+  <circle cx="30" cy="33" r="1.3" fill="var(--marker-color, #22c55e)" filter="url(#van-beacon-glow)"/>
+  <line x1="30" y1="76" x2="30" y2="83" stroke="#334c52" stroke-width="1.5"/>
+  <rect x="19" y="81" width="22" height="2" fill="#1b2f34"/>
+  <rect x="15.5" y="77" width="2" height="5" fill="#ff4d6d"/>
+  <rect x="42.5" y="77" width="2" height="5" fill="#ff4d6d"/>
+</svg>

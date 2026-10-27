@@ -183,7 +183,17 @@ function SUVSVG() {
   )
 }
 
-const vehicleSVGs = { pickup: PickupSVG, sedan: SedanSVG, van: VanSVG, suv: SUVSVG }
+const vehicleSVGs: Record<string, () => React.JSX.Element> = {
+  pickup: PickupSVG,
+  sedan: SedanSVG,
+  van: VanSVG,
+  suv: SUVSVG,
+  car: SedanSVG,
+  truck: PickupSVG,
+  bus: VanSVG,
+  bike: SedanSVG,
+  motorcycle: SedanSVG,
+}
 
 /* ─── Status badge ─────────────────────────────────────────────────── */
 function StatusBadge({ status }: { status: Vehicle['status'] }) {
@@ -275,7 +285,7 @@ interface VehicleCardProps {
 
 export default function VehicleCard({ vehicle, isSelected, onSelect }: VehicleCardProps) {
   const [expanded, setExpanded] = useState(false)
-  const VehicleSVG = vehicleSVGs[vehicle.type]
+  const VehicleSVG = vehicleSVGs[vehicle.type] || SedanSVG
 
   const handleCardClick = () => onSelect(vehicle)
   const handleExpandClick = (e: React.MouseEvent) => {

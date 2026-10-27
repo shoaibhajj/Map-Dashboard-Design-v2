@@ -1,5 +1,5 @@
 export type VehicleStatus = 'moving' | 'idle' | 'offline'
-export type VehicleType = 'van' | 'truck' | 'car' | 'motorcycle'
+export type VehicleType = 'van' | 'truck' | 'car' | 'motorcycle' | 'bus' | 'bike'
 export type GPSState = 'online' | 'weak' | 'offline' | 'not_installed'
 export type DriverAuthorization = 'authorized' | 'unauthorized' | 'unknown'
 export type WaslState = 'connected' | 'not_connected' | 'not_registered'
@@ -72,6 +72,7 @@ export interface Vehicle {
   lastUpdate: string
   location: string
   lat: number; lng: number
+  heading?: number
   /** Optional demo GPS route in [longitude, latitude] coordinates. */
   mapRoute?: [number, number][]
   odometer: number
@@ -159,7 +160,7 @@ export const vehicles: Vehicle[] = [
   },
   {
     id: 'v003', name: 'Fleet Gamma 14', plate: 'CA-2209-R',
-    driver: 'James Patel', vehicleType: 'van', groupId: 'riyadh-north', zone: 'North Riyadh',
+    driver: 'James Patel', vehicleType: 'bus', groupId: 'riyadh-north', zone: 'North Riyadh',
     status: 'idle', speed: 0, fuelLevel: 91,
     lastUpdate: '3 min ago',
     location: 'Al Yasmin, North Riyadh',
@@ -225,7 +226,7 @@ export const vehicles: Vehicle[] = [
   },
   {
     id: 'v005', name: 'Fleet Echo 22', plate: 'CA-3310-T',
-    driver: 'Priya Sharma', vehicleType: 'truck', groupId: 'riyadh-east', zone: 'East Riyadh',
+    driver: 'Priya Sharma', vehicleType: 'bike', groupId: 'riyadh-east', zone: 'East Riyadh',
     status: 'moving', speed: 81, fuelLevel: 33,
     lastUpdate: '5 sec ago',
     location: 'Al Rawdah, East Riyadh',
@@ -462,7 +463,7 @@ const generatedDemoVehicles: Vehicle[] = Array.from({ length: 120 }, (_, index):
   const status: VehicleStatus = isCommuter || index % 5 < 3 ? 'moving' : index % 5 === 3 ? 'idle' : 'offline'
   const speed = status === 'moving' ? 34 + (index * 17) % 72 : 0
   const [lng, lat] = seed.coordinates
-  const vehicleTypes: VehicleType[] = ['truck', 'van', 'car', 'motorcycle']
+  const vehicleTypes: VehicleType[] = ['truck', 'van', 'car', 'bus', 'bike']
   const towing = !isCommuter && index % 19 === 0
 
   return {

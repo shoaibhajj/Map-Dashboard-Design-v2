@@ -222,7 +222,8 @@ export default function FilterCard({ groups, filter, onFilterChange, minimized, 
                 { value: 'truck', label: t('type_truck') },
                 { value: 'van', label: t('type_van') },
                 { value: 'car', label: t('type_car') },
-                { value: 'motorcycle', label: t('type_motorcycle') },
+                { value: 'bus', label: t('type_bus') },
+                { value: 'bike', label: t('type_bike') },
               ]}
               selected={localFilter.types}
               onToggle={toggleType}

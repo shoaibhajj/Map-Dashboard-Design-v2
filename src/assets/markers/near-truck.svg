@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 136" width="64" height="136" role="img" aria-label="Heavy Articulated Truck Near Marker 2.5D">
+  <defs>
+    <!-- Cab Gradient -->
+    <linearGradient id="truck-cab-grad" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0%" stop-color="var(--marker-body-highlight, #ffffff)"/>
+      <stop offset="45%" stop-color="var(--marker-body-light, #dce9ec)"/>
+      <stop offset="85%" stop-color="var(--marker-body-mid, #9eb6bd)"/>
+      <stop offset="100%" stop-color="var(--marker-body-dark, #6f8a92)"/>
+    </linearGradient>
+
+    <!-- Trailer Container Gradient -->
+    <linearGradient id="truck-trailer-grad" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0%" stop-color="var(--marker-trailer-top, #e6f2f4)"/>
+      <stop offset="35%" stop-color="var(--marker-trailer-mid, #c9dcde)"/>
+      <stop offset="75%" stop-color="var(--marker-trailer-deep, #8eaab0)"/>
+      <stop offset="100%" stop-color="var(--marker-trailer-dark, #627e85)"/>
+    </linearGradient>
+
+    <!-- Glass Gradient -->
+    <linearGradient id="truck-glass-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--marker-glass-deep, #0b252c)"/>
+      <stop offset="50%" stop-color="var(--marker-glass-mid, #133f4a)"/>
+      <stop offset="100%" stop-color="var(--marker-glass-base, #071c22)"/>
+    </linearGradient>
+
+    <!-- 2.5D Drop Shadows -->
+    <filter id="truck-shadow" x="-35%" y="-25%" width="170%" height="160%">
+      <feDropShadow dx="2" dy="5.5" stdDeviation="4.5" flood-color="var(--marker-shadow-color, rgba(0,0,0,0.4))"/>
+    </filter>
+    <filter id="truck-beacon-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="var(--marker-color, #22c55e)" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+
+  <style>
+    :root, svg {
+      --marker-color: #22c55e;
+      --marker-color-light: #5eedc5;
+      --marker-body-highlight: #ffffff;
+      --marker-body-light: #dce9ec;
+      --marker-body-mid: #9eb6bd;
+      --marker-body-dark: #6f8a92;
+      --marker-chassis-side: #506b72;
+      --marker-trailer-top: #e6f2f4;
+      --marker-trailer-mid: #c9dcde;
+      --marker-trailer-deep: #8eaab0;
+      --marker-trailer-dark: #627e85;
+      --marker-trailer-ribs: #719098;
+      --marker-tanks: #66838a;
+      --marker-glass-deep: #0b252c;
+      --marker-glass-mid: #133f4a;
+      --marker-glass-base: #071c22;
+      --marker-stroke: #eaf8fa;
+      --marker-shadow-color: rgba(0, 0, 0, 0.4);
+    }
+    .dark svg, svg.dark, :root.dark svg {
+      --marker-body-highlight: #dce7ea;
+      --marker-body-light: #adc2c8;
+      --marker-body-mid: #68858d;
+      --marker-body-dark: #3f565c;
+      --marker-chassis-side: #2e4146;
+      --marker-trailer-top: #bed4d8;
+      --marker-trailer-mid: #8ba5ac;
+      --marker-trailer-deep: #59737a;
+      --marker-trailer-dark: #3a4e54;
+      --marker-trailer-ribs: #4a6369;
+      --marker-tanks: #465f65;
+      --marker-glass-deep: #06171c;
+      --marker-glass-mid: #0b262d;
+      --marker-glass-base: #040e11;
+      --marker-stroke: #a2bdc3;
+      --marker-shadow-color: rgba(0, 0, 0, 0.65);
+    }
+  </style>
+
+  <!-- 2.5D Articulated Ground Shadows -->
+  <ellipse cx="34" cy="25" rx="22" ry="19" fill="var(--marker-shadow-color, rgba(0,0,0,0.4))" filter="url(#truck-shadow)"/>
+  <rect x="9" y="53" width="48" height="78" rx="6" fill="var(--marker-shadow-color, rgba(0,0,0,0.4))" filter="url(#truck-shadow)"/>
+
+  <!-- === PART A: TRACTOR CAB (كابينة القاطرة) === -->
+  <!-- Front Heavy Wheels -->
+  <rect x="9.5" y="15" width="4" height="13" rx="2" fill="#131e21"/>
+  <rect x="50.5" y="15" width="4" height="13" rx="2" fill="#131e21"/>
+  <!-- Cab Lower Chassis -->
+  <path d="M19 5 H45 Q49 5 49 13 V39 H15 V13 Q15 5 19 5 Z" fill="var(--marker-chassis-side, #506b72)"/>
+  <!-- Cab Shell -->
+  <path d="M19 3 H45 Q48 3 48 11 V37 H16 V11 Q16 3 19 3 Z" fill="url(#truck-cab-grad)" stroke="var(--marker-stroke, #eaf8fa)" stroke-width="1.2"/>
+  <!-- Heavy Front Bumper -->
+  <rect x="14" y="3" width="36" height="3.5" rx="1" fill="#20343a"/>
+  <!-- Headlights (Theme Tinted) -->
+  <rect x="16" y="4" width="6" height="2.5" fill="var(--marker-color-light, #5eedc5)"/>
+  <rect x="42" y="4" width="6" height="2.5" fill="var(--marker-color-light, #5eedc5)"/>
+  <!-- Wide Cab Windshield -->
+  <path d="M18 10 H46 L45 20 H19 Z" fill="url(#truck-glass-grad)" stroke="#4a7c87" stroke-width="0.8"/>
+  <path d="M22 10 L27 10 L23 19 L19 19 Z" fill="#88cbda" opacity="0.6"/>
+  <!-- Aerodynamic Cab Roof Fairing / Deflector -->
+  <path d="M18 21 H46 L44 35 H20 Z" fill="url(#truck-cab-grad)" stroke="#b0d1d8" stroke-width="0.8"/>
+  <line x1="26" y1="24" x2="26" y2="32" stroke="#8faeb5" stroke-width="1"/>
+  <line x1="38" y1="24" x2="38" y2="32" stroke="#8faeb5" stroke-width="1"/>
+  <!-- Extended Towing Mirrors -->
+  <rect x="8.5" y="13" width="5.5" height="9" rx="1.5" fill="#2c4248"/>
+  <rect x="50" y="13" width="5.5" height="9" rx="1.5" fill="#2c4248"/>
+
+  <!-- === PART B: ARTICULATION HITCH & CHASSIS GAP (وصلة الجر) === -->
+  <!-- Dark Steel Frame Rails -->
+  <rect x="23" y="37" width="18" height="17" fill="#101c20"/>
+  <!-- Dual Fuel Tanks -->
+  <rect x="12" y="39" width="9" height="14" rx="2" fill="var(--marker-tanks, #66838a)" stroke="#9bb7be" stroke-width="0.8"/>
+  <rect x="43" y="39" width="9" height="14" rx="2" fill="var(--marker-tanks, #66838a)" stroke="#9bb7be" stroke-width="0.8"/>
+  <!-- Fifth-Wheel Coupling Plate (Theme Active) -->
+  <circle cx="32" cy="46" r="5.5" fill="#2b434a" stroke="var(--marker-color, #22c55e)" stroke-width="1.2"/>
+  <circle cx="32" cy="46" r="2.2" fill="#0b1e22"/>
+
+  <!-- === PART C: REAR CARGO TRAILER (مقطورة الشحن) === -->
+  <!-- Trailer Underbody -->
+  <rect x="11" y="53" width="42" height="74" rx="2" fill="var(--marker-chassis-side, #4d6970)"/>
+  <!-- Heavy Freight Container Shell -->
+  <rect x="10" y="51" width="44" height="74" rx="2" fill="url(#truck-trailer-grad)" stroke="var(--marker-stroke, #e4f5f8)" stroke-width="1.3"/>
+  <!-- Container Corrugated Roof Ribs (7 distinct ribs) -->
+  <line x1="12" y1="59" x2="52" y2="59" stroke="var(--marker-trailer-ribs, #719098)" stroke-width="1.6"/>
+  <line x1="12" y1="68" x2="52" y2="68" stroke="var(--marker-trailer-ribs, #719098)" stroke-width="1.6"/>
+  <line x1="12" y1="77" x2="52" y2="77" stroke="var(--marker-trailer-ribs, #719098)" stroke-width="1.6"/>
+  <line x1="12" y1="86" x2="52" y2="86" stroke="var(--marker-trailer-ribs, #719098)" stroke-width="1.6"/>
+  <line x1="12" y1="95" x2="52" y2="95" stroke="var(--marker-trailer-ribs, #719098)" stroke-width="1.6"/>
+  <line x1="12" y1="104" x2="52" y2="104" stroke="var(--marker-trailer-ribs, #719098)" stroke-width="1.6"/>
+  <line x1="12" y1="113" x2="52" y2="113" stroke="var(--marker-trailer-ribs, #719098)" stroke-width="1.6"/>
+  <!-- Corner Castings -->
+  <rect x="11" y="52" width="4" height="4" fill="#263a40"/>
+  <rect x="49" y="52" width="4" height="4" fill="#263a40"/>
+  <rect x="11" y="120" width="4" height="4" fill="#263a40"/>
+  <rect x="49" y="120" width="4" height="4" fill="#263a40"/>
+  <!-- Electronic Cargo Seal IoT Node (Theme Color Active) -->
+  <circle cx="32" cy="55" r="2.8" fill="#0d2830" stroke="var(--marker-color, #22c55e)" stroke-width="1"/>
+  <circle cx="32" cy="55" r="1.4" fill="var(--marker-color, #22c55e)" filter="url(#truck-beacon-glow)"/>
+  <!-- Dual Tandem Heavy Axles (8 tires total) -->
+  <rect x="6.5" y="94" width="4" height="13" rx="1.5" fill="#131e21"/>
+  <rect x="6.5" y="109" width="4" height="13" rx="1.5" fill="#131e21"/>
+  <rect x="53.5" y="94" width="4" height="13" rx="1.5" fill="#131e21"/>
+  <rect x="53.5" y="109" width="4" height="13" rx="1.5" fill="#131e21"/>
+  <!-- Rear Underrun Protection Guard & Taillights -->
+  <rect x="11" y="124" width="42" height="3" fill="#1e3036"/>
+  <rect x="13" y="123" width="8" height="2" fill="#ff4d6d"/>
+  <rect x="43" y="123" width="8" height="2" fill="#ff4d6d"/>
+</svg>

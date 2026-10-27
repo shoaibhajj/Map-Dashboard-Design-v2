@@ -1,5 +1,5 @@
 export type VehicleStatus = 'moving' | 'stopped' | 'needs_attention'
-export type VehicleType   = 'pickup' | 'sedan' | 'van' | 'suv'
+export type VehicleType   = 'pickup' | 'sedan' | 'van' | 'suv' | 'car' | 'truck' | 'bus' | 'bike' | 'motorcycle'
 export type SignalLevel   = 'قوية' | 'متوسطة' | 'ضعيفة'
 
 export interface Driver {

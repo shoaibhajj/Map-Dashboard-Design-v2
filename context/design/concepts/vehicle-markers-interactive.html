@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>معاينة تفاعلية لهيئات المركبات 2.5D ومحرك الألوان</title>
+  <style>
+    :root {
+      --primary: #22c55e;
+      --primary-light: #5eedc5;
+      --bg: #091d24;
+      --card-bg: #0e2a33;
+      --card-border: #1c4550;
+      --text: #edf7f8;
+      --muted: #8faeb5;
+      --font: "Segoe UI", -apple-system, BlinkMacSystemFont, "Cairo", Tahoma, sans-serif;
+    }
+
+    body.light-mode {
+      --bg: #eaf1f4;
+      --card-bg: #ffffff;
+      --card-border: #cddfe4;
+      --text: #0a252d;
+      --muted: #567881;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 30px 20px;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    h1 { font-size: 24px; font-weight: 800; }
+    p.subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+    /* Controls Bar */
+    .controls {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 30px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-group label {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 8px;
+    }
+
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .color-swatch:hover, .color-swatch.active {
+      transform: scale(1.15);
+      border-color: #ffffff;
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    .btn-toggle {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-toggle:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    input[type="range"] {
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .marker-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .marker-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 15px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .card-title { font-size: 18px; font-weight: 750; }
+    .card-tag {
+      font-size: 11.5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(34, 197, 94, 0.12);
+      color: var(--primary);
+      font-weight: 700;
+      border: 1px solid rgba(34, 197, 94, 0.25);
+    }
+
+    .card-desc { font-size: 12.5px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+
+    /* Stage Area for Markers */
+    .marker-stage {
+      flex: 1;
+      min-height: 160px;
+      background: var(--bg);
+      border: 1px dashed var(--card-border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 20px;
+    }
+
+    .marker-actions {
+      margin-top: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-select-toggle {
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-select-toggle:hover {
+      background: var(--primary);
+      color: #051a20;
+    }
+
+    /* ── VEHICLE MARKER WRAPPER & EXTERNAL SELECTION (As requested) ── */
+    .vehicle-marker-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      cursor: pointer;
+      outline: none;
+      border-radius: 8px;
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), filter 0.22s ease;
+      --marker-color: var(--primary);
+      --marker-color-light: var(--primary-light);
+    }
+
+    .vehicle-marker-wrapper:hover {
+      transform: translateY(-3px) scale(1.08);
+      filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--primary) 40%, transparent));
+    }
+
+    .vehicle-marker-wrapper:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 4px;
+    }
+
+    /* External Selection HUD Corners (Rendered outside the SVG) */
+    .vehicle-marker-wrapper.is-selected {
+      z-index: 10;
+    }
+
+    .vehicle-marker-wrapper.is-selected::before,
+    .vehicle-marker-wrapper.is-selected::after {
+      content: '';
+      position: absolute;
+      pointer-events: none;
+      width: 14px;
+      height: 14px;
+      border-color: var(--primary);
+      border-style: solid;
+      border-width: 0;
+      animation: hud-bracket-pulse 2.2s ease-in-out infinite alternate;
+    }
+
+    .vehicle-marker-wrapper.is-selected::before {
+      top: -8px;
+      left: -8px;
+      border-top-width: 2.5px;
+      border-left-width: 2.5px;
+      border-top-left-radius: 4px;
+    }
+
+    .vehicle-marker-wrapper.is-selected::after {
+      bottom: -8px;
+      right: -8px;
+      border-bottom-width: 2.5px;
+      border-right-width: 2.5px;
+      border-bottom-right-radius: 4px;
+    }
+
+    /* Companion Frame for Top-Right & Bottom-Left */
+    .vehicle-marker-hud-frame {
+      position: absolute;
+      inset: -8px;
+      pointer-events: none;
+    }
+
+    .vehicle-marker-wrapper.is-selected .vehicle-marker-hud-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 14px;
+      height: 14px;
+      border-top: 2.5px solid var(--primary);
+      border-right: 2.5px solid var(--primary);
+      border-top-right-radius: 4px;
+      animation: hud-bracket-pulse 2.2s ease-in-out infinite alternate;
+    }
+
+    .vehicle-marker-wrapper.is-selected .vehicle-marker-hud-frame::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 14px;
+      height: 14px;
+      border-bottom: 2.5px solid var(--primary);
+      border-left: 2.5px solid var(--primary);
+      border-bottom-left-radius: 4px;
+      animation: hud-bracket-pulse 2.2s ease-in-out infinite alternate;
+    }
+
+    @keyframes hud-bracket-pulse {
+      0% { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--primary) 40%, transparent)); opacity: 0.85; }
+      100% { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 85%, transparent)); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>معاينة هيئات المركبات 2.5D (البعيد المشترك + الخيارات الـ 5)</h1>
+        <p class="subtitle">تغيير فوري للألوان ووضع الإضاءة، وتحديد خارجي HUD بدون تضمين داخل الـ SVG</p>
+      </div>
+      <div>
+        <button class="btn-toggle" id="btn-theme-mode" onclick="toggleThemeMode()">
+          <span id="theme-icon">☀️</span> <span id="theme-text">الوضع الفاتح</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Controls Bar -->
+    <div class="controls">
+      <div class="control-group">
+        <label>لون الهوية (Color Theme):</label>
+        <div class="color-swatches">
+          <div class="color-swatch active" style="background:#22c55e;" onclick="setColorTheme('#22c55e', '#5eedc5')" title="أخضر قياسي"></div>
+          <div class="color-swatch" style="background:#6fe2cc;" onclick="setColorTheme('#6fe2cc', '#9effec')" title="نعناعي Petroleum/Mint"></div>
+          <div class="color-swatch" style="background:#10b981;" onclick="setColorTheme('#10b981', '#34d399')" title="زمردي Emerald"></div>
+          <div class="color-swatch" style="background:#06b6d4;" onclick="setColorTheme('#06b6d4', '#67e8f9')" title="سماوي Cyan IoT"></div>
+          <div class="color-swatch" style="background:#f59e0b;" onclick="setColorTheme('#f59e0b', '#fbbf24')" title="برتقالي تنبيه"></div>
+        </div>
+      </div>
+
+      <div class="control-group" style="margin-right:auto;">
+        <label>زاوية التوجيه (Heading): <span id="heading-val">0°</span></label>
+        <input type="range" id="heading-slider" min="0" max="360" value="0" oninput="updateHeading(this.value)">
+      </div>
+
+      <div class="control-group">
+        <button class="btn-toggle" onclick="toggleAllSelection()">تبديل التحديد للجميع</button>
+      </div>
+    </div>
+
+    <!-- 6 Cards Grid -->
+    <div class="grid">
+      <!-- 1. Shared Far Arrow -->
+      <div class="marker-card">
+        <div class="card-head">
+          <div class="card-title">١ · البعيد المشترك (Far Arrow)</div>
+          <div class="card-tag">سهم نقي 48×48</div>
+        </div>
+        <div class="card-desc">سهم توجيهي هندسي 2.5D نقي بدون أي مثلث أو ذيل خلفي لتقليل التزاحم عند التكبير البعيد.</div>
+        <div class="marker-stage">
+          <div class="vehicle-marker-wrapper" id="marker-arrow" onclick="toggleSelect(this)">
+            <div class="vehicle-marker-rotator">
+              <!-- Inline Far Arrow SVG -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="48" height="48">
+                <path d="M32 12 L50 50 L32 41 L14 50 Z" fill="rgba(0,0,0,0.4)"/>
+                <path d="M32 10 L14 48 L32 39 Z" fill="var(--primary)" fill-opacity="0.82" stroke="var(--primary)" stroke-width="1.2" stroke-linejoin="round"/>
+                <path d="M32 10 L50 48 L32 39 Z" fill="var(--primary)" stroke="#ffffff" stroke-width="0.8" stroke-linejoin="round"/>
+                <line x1="32" y1="12" x2="32" y2="38" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/>
+                <circle cx="32" cy="27" r="3.2" fill="#072027" stroke="#ffffff" stroke-width="0.8"/>
+                <circle cx="32" cy="27" r="1.6" fill="var(--primary)"/>
+              </svg>
+            </div>
+            <div class="vehicle-marker-hud-frame"></div>
+          </div>
+        </div>
+        <div class="marker-actions">
+          <span style="font-size:12px;color:var(--muted);">اضغط لتجربة التحديد</span>
+          <button class="btn-select-toggle" onclick="toggleSelect(document.getElementById('marker-arrow'))">تحديد</button>
+        </div>
+      </div>
+
+      <!-- 2. Car -->
+      <div class="marker-card">
+        <div class="card-head">
+          <div class="card-title">٢ · سيارة (Car)</div>
+          <div class="card-tag">مدمجة · 34×64</div>
+        </div>
+        <div class="card-desc">شكل مدمج ورشيق يشمل السيدان، الدفع الرباعي، والبيك أب، بسقف لؤلؤي وعقدة IoT وعجلات جانبية.</div>
+        <div class="marker-stage">
+          <div class="vehicle-marker-wrapper" id="marker-car" onclick="toggleSelect(this)">
+            <div class="vehicle-marker-rotator">
+              <!-- Inline Car SVG -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 76" width="46" height="62">
+                <ellipse cx="29" cy="43" rx="19" ry="30" fill="rgba(0,0,0,0.4)"/>
+                <rect x="9" y="19" width="3.5" height="10" rx="1.5" fill="#131e21"/>
+                <rect x="43.5" y="19" width="3.5" height="10" rx="1.5" fill="#131e21"/>
+                <rect x="9" y="48" width="3.5" height="10" rx="1.5" fill="#131e21"/>
+                <rect x="43.5" y="48" width="3.5" height="10" rx="1.5" fill="#131e21"/>
+                <path d="M18 9 Q28 4 38 9 L44 20 L45 60 Q44 69 37 71 L19 71 Q12 69 11 60 L12 20 Z" fill="#58747c"/>
+                <path d="M18 7 Q28 2 38 7 L43 18 L44 58 Q43 67 36 69 L20 69 Q13 67 12 58 L13 18 Z" fill="#eaf3f5" stroke="#bad2d7" stroke-width="1.2"/>
+                <path d="M15 8 L21 9 L20 12 L14 10 Z" fill="var(--primary)"/>
+                <path d="M41 8 L35 9 L36 12 L42 10 Z" fill="var(--primary)"/>
+                <path d="M18 21 Q28 18 38 21 L40 31 Q28 29 16 31 Z" fill="#0d2830" stroke="#4a7c87" stroke-width="0.8"/>
+                <path d="M16 31 Q28 29 40 31 L39 48 Q28 47 17 48 Z" fill="#c1d5db" stroke="#bad9de" stroke-width="0.8"/>
+                <circle cx="28" cy="39" r="3.2" fill="#0c2930" stroke="var(--primary)" stroke-width="1"/>
+                <circle cx="28" cy="39" r="1.6" fill="var(--primary)"/>
+                <path d="M17 48 Q28 47 39 48 L38 57 Q28 58 18 57 Z" fill="#0d2830" stroke="#4a7c87" stroke-width="0.8"/>
+                <path d="M17 67 Q28 69 39 67" stroke="#ff4d6d" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="vehicle-marker-hud-frame"></div>
+          </div>
+        </div>
+        <div class="marker-actions">
+          <span style="font-size:12px;color:var(--muted);">أصغر حجماً من الفان</span>
+          <button class="btn-select-toggle" onclick="toggleSelect(document.getElementById('marker-car'))">تحديد</button>
+        </div>
+      </div>
+
+      <!-- 3. Van -->
+      <div class="marker-card">
+        <div class="card-head">
+          <div class="card-title">٣ · فان (Van)</div>
+          <div class="card-tag">متوسطة · 38×78</div>
+        </div>
+        <div class="card-desc">هيكل صندوقي متوسط بسقف شحن مرتفع بـ 4 أضلاع تقوية فولاذية وبابين خلفيين مع فواصل الأبواب.</div>
+        <div class="marker-stage">
+          <div class="vehicle-marker-wrapper" id="marker-van" onclick="toggleSelect(this)">
+            <div class="vehicle-marker-rotator">
+              <!-- Inline Van SVG -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 88" width="50" height="74">
+                <ellipse cx="31" cy="49" rx="21" ry="38" fill="rgba(0,0,0,0.4)"/>
+                <rect x="8.5" y="21" width="3.5" height="11" rx="1.5" fill="#131e21"/>
+                <rect x="48" y="21" width="3.5" height="11" rx="1.5" fill="#131e21"/>
+                <rect x="8.5" y="63" width="3.5" height="11" rx="1.5" fill="#131e21"/>
+                <rect x="48" y="63" width="3.5" height="11" rx="1.5" fill="#131e21"/>
+                <path d="M19 8 Q30 4 41 8 L46 18 V78 Q45 84 39 85 H21 Q15 84 14 78 V18 Z" fill="#526e76"/>
+                <path d="M19 6 Q30 2 41 6 L45 16 V76 Q44 82 38 83 H22 Q16 82 15 76 V16 Z" fill="#e3eef0" stroke="#b4cbd0" stroke-width="1.2"/>
+                <rect x="16" y="7" width="7" height="3" rx="1" fill="var(--primary)"/>
+                <rect x="37" y="7" width="7" height="3" rx="1" fill="var(--primary)"/>
+                <path d="M18 18 Q30 16 42 18 L43 28 H17 Z" fill="#0d2830" stroke="#4a7c87" stroke-width="0.8"/>
+                <rect x="17" y="29" width="26" height="47" rx="1" fill="#b6ccd2"/>
+                <line x1="19" y1="38" x2="41" y2="38" stroke="#4a666e" stroke-width="1.4"/>
+                <line x1="19" y1="48" x2="41" y2="48" stroke="#4a666e" stroke-width="1.4"/>
+                <line x1="19" y1="58" x2="41" y2="58" stroke="#4a666e" stroke-width="1.4"/>
+                <line x1="19" y1="68" x2="41" y2="68" stroke="#4a666e" stroke-width="1.4"/>
+                <rect x="26" y="31" width="8" height="4" rx="1.5" fill="#0d2830" stroke="var(--primary)" stroke-width="1"/>
+                <circle cx="30" cy="33" r="1.3" fill="var(--primary)"/>
+                <line x1="30" y1="76" x2="30" y2="83" stroke="#253a40" stroke-width="1.5"/>
+                <rect x="19" y="81" width="22" height="2" fill="#1b2f34"/>
+                <rect x="15.5" y="77" width="2" height="5" fill="#ff4d6d"/>
+                <rect x="42.5" y="77" width="2" height="5" fill="#ff4d6d"/>
+              </svg>
+            </div>
+            <div class="vehicle-marker-hud-frame"></div>
+          </div>
+        </div>
+        <div class="marker-actions">
+          <span style="font-size:12px;color:var(--muted);">حجم صندوقي متوسط</span>
+          <button class="btn-select-toggle" onclick="toggleSelect(document.getElementById('marker-van'))">تحديد</button>
+        </div>
+      </div>
+
+      <!-- 4. Bus -->
+      <div class="marker-card">
+        <div class="card-head">
+          <div class="card-title">٤ · باص (Bus)</div>
+          <div class="card-tag">طويلة · 42×114</div>
+        </div>
+        <div class="card-desc">هيكل ركاب ممتد وضخم (ضعف طول السيارة)، زجاج بانورامي مقسوم، وحدات تكييف سقفية ومحاور مزدوجة.</div>
+        <div class="marker-stage">
+          <div class="vehicle-marker-wrapper" id="marker-bus" onclick="toggleSelect(this)">
+            <div class="vehicle-marker-rotator">
+              <!-- Inline Bus SVG -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 128" width="46" height="92">
+                <ellipse cx="35" cy="69" rx="23" ry="57" fill="rgba(0,0,0,0.4)"/>
+                <rect x="9.5" y="27" width="4" height="13" rx="2" fill="#131e21"/>
+                <rect x="50.5" y="27" width="4" height="13" rx="2" fill="#131e21"/>
+                <rect x="9.5" y="88" width="4" height="12" rx="1.5" fill="#131e21"/>
+                <rect x="50.5" y="88" width="4" height="12" rx="1.5" fill="#131e21"/>
+                <rect x="9.5" y="102" width="4" height="12" rx="1.5" fill="#131e21"/>
+                <rect x="50.5" y="102" width="4" height="12" rx="1.5" fill="#131e21"/>
+                <path d="M20 6 Q32 2 44 6 L50 15 V118 Q49 125 41 126 H23 Q15 125 14 118 V15 Z" fill="#4d6970"/>
+                <path d="M20 4 Q32 0 44 4 L49 13 V116 Q48 123 40 124 H24 Q16 123 15 116 V13 Z" fill="#e1edf0" stroke="#abc5cb" stroke-width="1.3"/>
+                <rect x="18" y="4" width="7" height="3" rx="1" fill="var(--primary)"/>
+                <rect x="39" y="4" width="7" height="3" rx="1" fill="var(--primary)"/>
+                <path d="M18 14 Q32 10 46 14 L47 27 H17 Z" fill="#0b252c" stroke="#4a7c87" stroke-width="1"/>
+                <line x1="32" y1="12" x2="32" y2="27" stroke="#1d3d44" stroke-width="1.2"/>
+                <rect x="16" y="28" width="2.5" height="84" fill="#10323a"/>
+                <rect x="45.5" y="28" width="2.5" height="84" fill="#10323a"/>
+                <rect x="22" y="33" width="20" height="23" rx="2.5" fill="#75939b" stroke="#cde3e7" stroke-width="0.8"/>
+                <rect x="25" y="61" width="14" height="11" rx="1.5" fill="#9db9bf" stroke="#cde3e7" stroke-width="0.8"/>
+                <circle cx="32" cy="77" r="3.2" fill="#0b282f" stroke="var(--primary)" stroke-width="1"/>
+                <circle cx="32" cy="77" r="1.6" fill="var(--primary)"/>
+                <rect x="22" y="85" width="20" height="22" rx="2.5" fill="#75939b" stroke="#cde3e7" stroke-width="0.8"/>
+                <rect x="16" y="117" width="3" height="6" fill="#ff4d6d"/>
+                <rect x="45" y="117" width="3" height="6" fill="#ff4d6d"/>
+              </svg>
+            </div>
+            <div class="vehicle-marker-hud-frame"></div>
+          </div>
+        </div>
+        <div class="marker-actions">
+          <span style="font-size:12px;color:var(--muted);">هيكل ممتد بوضوح</span>
+          <button class="btn-select-toggle" onclick="toggleSelect(document.getElementById('marker-bus'))">تحديد</button>
+        </div>
+      </div>
+
+      <!-- 5. Truck -->
+      <div class="marker-card">
+        <div class="card-head">
+          <div class="card-title">٥ · شاحنة نقل ثقيل (Truck)</div>
+          <div class="card-tag">مفصلية · 44×124</div>
+        </div>
+        <div class="card-desc">هيكل مفصلي فريد: كابينة قاطرة + مسافة شاسيه مكشوفة مع قرص الجر وخزانات + مقطورة شحن بحاويات.</div>
+        <div class="marker-stage">
+          <div class="vehicle-marker-wrapper" id="marker-truck" onclick="toggleSelect(this)">
+            <div class="vehicle-marker-rotator">
+              <!-- Inline Truck SVG -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 136" width="46" height="98">
+                <ellipse cx="34" cy="25" rx="22" ry="19" fill="rgba(0,0,0,0.4)"/>
+                <rect x="9" y="53" width="48" height="78" rx="6" fill="rgba(0,0,0,0.4)"/>
+                <!-- Cab -->
+                <rect x="9.5" y="15" width="4" height="13" rx="2" fill="#131e21"/>
+                <rect x="50.5" y="15" width="4" height="13" rx="2" fill="#131e21"/>
+                <path d="M19 5 H45 Q49 5 49 13 V39 H15 V13 Q15 5 19 5 Z" fill="#506b72"/>
+                <path d="M19 3 H45 Q48 3 48 11 V37 H16 V11 Q16 3 19 3 Z" fill="#dce9ec" stroke="#a2bdc3" stroke-width="1.2"/>
+                <rect x="14" y="3" width="36" height="3.5" rx="1" fill="#20343a"/>
+                <rect x="16" y="4" width="6" height="2.5" fill="var(--primary)"/>
+                <rect x="42" y="4" width="6" height="2.5" fill="var(--primary)"/>
+                <path d="M18 10 H46 L45 20 H19 Z" fill="#0b252c" stroke="#4a7c87" stroke-width="0.8"/>
+                <path d="M18 21 H46 L44 35 H20 Z" fill="#9eb6bd" stroke="#b0d1d8" stroke-width="0.8"/>
+                <rect x="8.5" y="13" width="5.5" height="9" rx="1.5" fill="#2c4248"/>
+                <rect x="50" y="13" width="5.5" height="9" rx="1.5" fill="#2c4248"/>
+                <!-- Hitch Gap -->
+                <rect x="23" y="37" width="18" height="17" fill="#101c20"/>
+                <rect x="12" y="39" width="9" height="14" rx="2" fill="#66838a" stroke="#9bb7be" stroke-width="0.8"/>
+                <rect x="43" y="39" width="9" height="14" rx="2" fill="#66838a" stroke="#9bb7be" stroke-width="0.8"/>
+                <circle cx="32" cy="46" r="5.5" fill="#2b434a" stroke="var(--primary)" stroke-width="1.2"/>
+                <circle cx="32" cy="46" r="2.2" fill="#0b1e22"/>
+                <!-- Trailer -->
+                <rect x="11" y="53" width="42" height="74" rx="2" fill="#4d6970"/>
+                <rect x="10" y="51" width="44" height="74" rx="2" fill="#c9dcde" stroke="#a2bdc3" stroke-width="1.3"/>
+                <line x1="12" y1="59" x2="52" y2="59" stroke="#4a6369" stroke-width="1.5"/>
+                <line x1="12" y1="68" x2="52" y2="68" stroke="#4a6369" stroke-width="1.5"/>
+                <line x1="12" y1="77" x2="52" y2="77" stroke="#4a6369" stroke-width="1.5"/>
+                <line x1="12" y1="86" x2="52" y2="86" stroke="#4a6369" stroke-width="1.5"/>
+                <line x1="12" y1="95" x2="52" y2="95" stroke="#4a6369" stroke-width="1.5"/>
+                <line x1="12" y1="104" x2="52" y2="104" stroke="#4a6369" stroke-width="1.5"/>
+                <line x1="12" y1="113" x2="52" y2="113" stroke="#4a6369" stroke-width="1.5"/>
+                <circle cx="32" cy="55" r="2.8" fill="#0d2830" stroke="var(--primary)" stroke-width="1"/>
+                <circle cx="32" cy="55" r="1.4" fill="var(--primary)"/>
+                <rect x="6.5" y="94" width="4" height="13" rx="1.5" fill="#131e21"/>
+                <rect x="6.5" y="109" width="4" height="13" rx="1.5" fill="#131e21"/>
+                <rect x="53.5" y="94" width="4" height="13" rx="1.5" fill="#131e21"/>
+                <rect x="53.5" y="109" width="4" height="13" rx="1.5" fill="#131e21"/>
+                <rect x="11" y="124" width="42" height="3" fill="#1e3036"/>
+                <rect x="13" y="123" width="8" height="2" fill="#ff4d6d"/>
+                <rect x="43" y="123" width="8" height="2" fill="#ff4d6d"/>
+              </svg>
+            </div>
+            <div class="vehicle-marker-hud-frame"></div>
+          </div>
+        </div>
+        <div class="marker-actions">
+          <span style="font-size:12px;color:var(--muted);">هيكل مقسم مفصلي</span>
+          <button class="btn-select-toggle" onclick="toggleSelect(document.getElementById('marker-truck'))">تحديد</button>
+        </div>
+      </div>
+
+      <!-- 6. Bike -->
+      <div class="marker-card">
+        <div class="card-head">
+          <div class="card-title">٦ · دراجة (Bike)</div>
+          <div class="card-tag">نحيفة · 18×52</div>
+        </div>
+        <div class="card-desc">هيكل نحيف ورشيق يجمع الدراجات النارية والهوائية، بعجلتين بارزتين، مقود، وخوذة راكب ثلاثية الأبعاد.</div>
+        <div class="marker-stage">
+          <div class="vehicle-marker-wrapper" id="marker-bike" onclick="toggleSelect(this)">
+            <div class="vehicle-marker-rotator">
+              <!-- Inline Bike SVG -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 64" width="38" height="52">
+                <ellipse cx="25" cy="37" rx="8" ry="26" fill="rgba(0,0,0,0.4)"/>
+                <rect x="22" y="8" width="4" height="14" rx="2" fill="#131e21" stroke="#7e9ea5" stroke-width="0.8"/>
+                <path d="M21 16 L23 22 M27 16 L25 22" stroke="var(--primary)" stroke-width="1.5"/>
+                <path d="M21 8 L27 8 L25 13 L23 13 Z" fill="var(--primary)"/>
+                <path d="M13 21 L20 23 L28 23 L35 21" stroke="#e0f4f7" stroke-width="2.2" stroke-linecap="round"/>
+                <circle cx="13" cy="21" r="1.5" fill="var(--primary)"/>
+                <circle cx="35" cy="21" r="1.5" fill="var(--primary)"/>
+                <rect x="22" y="21" width="4" height="3" rx="0.5" fill="#0c262e" stroke="var(--primary)" stroke-width="0.8"/>
+                <path d="M20 25 Q24 23 28 25 L29 34 Q24 35 19 34 Z" fill="#eaf3f5" stroke="#dff3f6" stroke-width="1"/>
+                <ellipse cx="24" cy="37" rx="4.5" ry="5.5" fill="#ffffff" stroke="#719ba3" stroke-width="1"/>
+                <path d="M22 34 Q24 33 26 34" stroke="#0e2a33" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M16 38 Q24 40 32 38" stroke="#29464e" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M21 44 H27 L26 50 H22 Z" fill="#1b2e35"/>
+                <rect x="22" y="48" width="4" height="14" rx="2" fill="#131e21" stroke="#7e9ea5" stroke-width="0.8"/>
+                <rect x="22.5" y="47" width="3" height="2" fill="#ff4d6d"/>
+                <circle cx="24" cy="45" r="1.4" fill="var(--primary)"/>
+              </svg>
+            </div>
+            <div class="vehicle-marker-hud-frame"></div>
+          </div>
+        </div>
+        <div class="marker-actions">
+          <span style="font-size:12px;color:var(--muted);">نحيفة ورشيقة جداً</span>
+          <button class="btn-select-toggle" onclick="toggleSelect(document.getElementById('marker-bike'))">تحديد</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function setColorTheme(color, lightColor) {
+      document.documentElement.style.setProperty('--primary', color);
+      document.documentElement.style.setProperty('--primary-light', lightColor);
+      document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    function toggleThemeMode() {
+      const isLight = document.body.classList.toggle('light-mode');
+      document.getElementById('theme-icon').textContent = isLight ? '🌙' : '☀️';
+      document.getElementById('theme-text').textContent = isLight ? 'الوضع الداكن' : 'الوضع الفاتح';
+    }
+
+    function updateHeading(deg) {
+      document.getElementById('heading-val').textContent = deg + '°';
+      document.querySelectorAll('.vehicle-marker-rotator').forEach(el => {
+        el.style.transform = `rotate(${deg}deg)`;
+      });
+    }
+
+    function toggleSelect(el) {
+      el.classList.toggle('is-selected');
+    }
+
+    let allSelected = false;
+    function toggleAllSelection() {
+      allSelected = !allSelected;
+      document.querySelectorAll('.vehicle-marker-wrapper').forEach(el => {
+        el.classList.toggle('is-selected', allSelected);
+      });
+    }
+  </script>
+</body>
+</html>
