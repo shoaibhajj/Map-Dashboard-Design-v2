@@ -9,26 +9,49 @@ interface ThemeContextType {
   setPaletteId: (palette: PaletteId) => void
 }
 
-// TEMP: Force the startup theme while user preference persistence is paused.
-// TODO: Restore reading and writing the fleetview-color-mode and fleetview-palette keys when user settings are ready.
-const INITIAL_DARK_MODE = true
-const INITIAL_PALETTE: PaletteId = 'tripmonitor'
+const MODE_KEY = 'fleetview-color-mode'
+const PALETTE_KEY = 'fleetview-palette'
+
+function initialMode(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const savedMode = window.localStorage.getItem(MODE_KEY)
+    // Default must NOT be dark mode -> returns true only when explicitly saved as 'dark'
+    return savedMode === 'dark'
+  } catch {
+    return false
+  }
+}
+
+function initialPalette(): PaletteId {
+  if (typeof window === 'undefined') return 'tripmonitor'
+  try {
+    const savedPalette = window.localStorage.getItem(PALETTE_KEY)
+    return savedPalette === 'current' ? 'current' : 'tripmonitor'
+  } catch {
+    return 'tripmonitor'
+  }
+}
 
 const ThemeContext = createContext<ThemeContextType>({
-  isDark: true,
+  isDark: false,
   toggleTheme: () => {},
   paletteId: 'tripmonitor',
   setPaletteId: () => {},
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [isDark, setIsDark] = useState(INITIAL_DARK_MODE)
-  const [paletteId, setPaletteId] = useState<PaletteId>(INITIAL_PALETTE)
+  const [isDark, setIsDark] = useState<boolean>(initialMode)
+  const [paletteId, setPaletteId] = useState<PaletteId>(initialPalette)
 
   useEffect(() => {
     const root = document.documentElement
     root.classList.toggle('dark', isDark)
     root.dataset.palette = paletteId
+    try {
+      window.localStorage.setItem(MODE_KEY, isDark ? 'dark' : 'light')
+      window.localStorage.setItem(PALETTE_KEY, paletteId)
+    } catch (_) {}
   }, [isDark, paletteId])
 
   return (
@@ -41,3 +64,4 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function useTheme() {
   return useContext(ThemeContext)
 }
+

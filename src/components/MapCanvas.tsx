@@ -34,6 +34,20 @@ const STYLES: Record<MapStyle, { url: string; label: string }> = {
   terrain:   { url: 'mapbox://styles/mapbox/outdoors-v12',          label: 'Terrain'   },
 }
 const STYLE_ORDER: MapStyle[] = ['streets', 'satellite', 'dark', 'terrain']
+const MAP_STYLE_KEY = 'fleetview-map-style'
+
+function initialMapStyle(): MapStyle {
+  if (typeof window === 'undefined') return 'streets'
+  try {
+    const saved = window.localStorage.getItem(MAP_STYLE_KEY)
+    if (saved === 'streets' || saved === 'satellite' || saved === 'dark' || saved === 'terrain') {
+      return saved
+    }
+  } catch (_) {}
+  // Default is LIGHT MODE (streets)
+  return 'streets'
+}
+
 const RIYADH_CENTER: [number, number] = [46.6753, 24.7136]
 const DEFAULT_ZOOM = 9
 
@@ -510,7 +524,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
   const [mapLoaded,     setMapLoaded]     = useState(false)
   const [zoom,          setZoom]          = useState(DEFAULT_ZOOM)
   const [is3D,          setIs3D]          = useState(false)
-  const [activeStyle,   setActiveStyle]   = useState<MapStyle>(darkMode ? 'dark' : 'streets')
+  const [activeStyle,   setActiveStyle]   = useState<MapStyle>(initialMapStyle)
   const [showStyleMenu, setShowStyleMenu] = useState(false)
   const [snappedRoutes, setSnappedRoutes] = useState<SnappedRoutes>({})
 
@@ -596,7 +610,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: STYLES[darkMode ? 'dark' : 'streets'].url,
+      style: STYLES[activeStyle].url,
       accessToken: MAPBOX_TOKEN,
       center: RIYADH_CENTER,
       zoom: DEFAULT_ZOOM,
@@ -831,10 +845,11 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       vehicleHeadingsRef.current.set(vehicle.id, geoHeading)
       const screenHeading = ((geoHeading - mapBearing) + 360) % 360
 
+      const isMapDark = activeStyle === 'dark' || (activeStyle !== 'streets' && darkMode)
       const svgStr = buildMarkerSVG(
         vehicle,
         selected,
-        darkMode,
+        isMapDark,
         getVehicleMapColor(vehicle, mapLegend),
         mapLegend.markerShape === 'arrow',
         screenHeading
@@ -873,7 +888,7 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     markersRef.current.forEach((marker, id) => {
       if (!vehicles.find(v => v.id === id)) { marker.remove(); markersRef.current.delete(id) }
     })
-  }, [vehicles, selectedVehicle, mapLoaded, darkMode, mapLegend])
+  }, [vehicles, selectedVehicle, mapLoaded, darkMode, activeStyle, mapLegend])
 
   // Replace overlapping pins with interactive orbital summaries at cluster zooms.
   useEffect(() => {
@@ -1450,6 +1465,9 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
     const map = mapRef.current
     if (!map) return
     setActiveStyle(style)
+    try {
+      window.localStorage.setItem(MAP_STYLE_KEY, style)
+    } catch (_) {}
     setShowStyleMenu(false)
     map.setStyle(STYLES[style].url, { diff: false } as any)
     map.once('style.load', () => {
