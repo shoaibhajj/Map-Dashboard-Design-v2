@@ -8,6 +8,14 @@
   pointer-events: none;
 }
 
+/* Keep Mapbox's outer marker in its projected absolute-positioned layer.
+   The donut's relative positioning belongs to the nested React content only. */
+.mapboxgl-marker.orbital-cluster-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
 .mapboxgl-marker.orbital-cluster-marker:hover,
 .mapboxgl-marker.orbital-cluster-marker:focus-within {
   z-index: 1000 !important;

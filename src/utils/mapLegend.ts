@@ -3,6 +3,7 @@ import type { Vehicle, VehicleStatus } from "../data/vehicles";
 export type MapLegendMode = "status" | "metric";
 export type FuelUnit = "percent" | "liter";
 export type ClusterGroupingMode = "administrative" | "distance";
+export type VehicleMarkerShape = "arrow" | "vehicle";
 
 export interface ClusterZoomSettings {
   countryMaxZoom: number;
@@ -83,6 +84,7 @@ export interface MapLegendConfig {
   statusColors: Record<VehicleStatus | "towed", string>;
   ranges: MapColorRange[];
   noDataColor: string;
+  markerShape: VehicleMarkerShape;
   clusterGrouping: ClusterGroupingMode;
   clusteringEnabled: boolean;
   clusterZoomSettings: ClusterZoomSettings;
@@ -91,10 +93,10 @@ export interface MapLegendConfig {
 const STORAGE_KEY = "fleet-map-legend-settings-v1";
 export const DEFAULT_FUEL_TANK_CAPACITY_LITERS = 70;
 export const DEFAULT_CLUSTER_ZOOM_SETTINGS: ClusterZoomSettings = {
-  countryMaxZoom: 3,
-  regionMaxZoom: 10,
+  countryMaxZoom: 4,
+  regionMaxZoom: 8,
   sectorMaxZoom: 11,
-  neighborhoodMaxZoom: 12,
+  neighborhoodMaxZoom: 13,
   distanceRanges: [
     { maxZoom: 6, radiusKm: 220 },
     { maxZoom: 8, radiusKm: 80 },
@@ -295,6 +297,7 @@ export const DEFAULT_MAP_LEGEND: MapLegendConfig = {
   },
   ranges: [],
   noDataColor: "#94a3b8",
+  markerShape: "arrow",
   clusterGrouping: "administrative",
   clusteringEnabled: true,
   clusterZoomSettings: DEFAULT_CLUSTER_ZOOM_SETTINGS,
@@ -660,72 +663,19 @@ export function readMapLegendConfig(): MapLegendConfig {
         parsed.metricKey === "fuelLevel"
           ? initialActiveFuelRanges
           : activeMetricRanges ?? [],
-      clusterGrouping:
-        parsed.clusterGrouping === "distance" ? "distance" : "administrative",
-      clusteringEnabled: parsed.clusteringEnabled !== false,
-      clusterZoomSettings: normalizeClusterZoomSettings(
-        parsed.clusterZoomSettings
-      ),
+      markerShape: parsed.markerShape === "vehicle" ? "vehicle" : "arrow",
+      // Clustering is a fixed map behavior. Ignore older saved tuning values
+      // so a previous legend setting cannot disable or change the grouping.
+      clusterGrouping: "administrative",
+      clusteringEnabled: true,
+      clusterZoomSettings: {
+        ...DEFAULT_CLUSTER_ZOOM_SETTINGS,
+        distanceRanges: DEFAULT_CLUSTER_ZOOM_SETTINGS.distanceRanges.map(range => ({ ...range })),
+      },
     };
   } catch {
     return DEFAULT_MAP_LEGEND;
   }
-}
-
-function normalizeClusterZoomSettings(value: unknown): ClusterZoomSettings {
-  const saved =
-    value && typeof value === "object"
-      ? (value as Partial<ClusterZoomSettings>)
-      : {};
-  const bounded = (
-    input: unknown,
-    fallback: number,
-    min: number,
-    max: number
-  ) =>
-    typeof input === "number" && Number.isFinite(input)
-      ? Math.min(max, Math.max(min, input))
-      : fallback;
-  const savedRanges = Array.isArray(saved.distanceRanges)
-    ? saved.distanceRanges
-    : [];
-  return {
-    countryMaxZoom: bounded(
-      saved.countryMaxZoom,
-      DEFAULT_CLUSTER_ZOOM_SETTINGS.countryMaxZoom,
-      1,
-      18
-    ),
-    regionMaxZoom: bounded(
-      saved.regionMaxZoom,
-      DEFAULT_CLUSTER_ZOOM_SETTINGS.regionMaxZoom,
-      2,
-      18
-    ),
-    sectorMaxZoom: bounded(
-      saved.sectorMaxZoom,
-      DEFAULT_CLUSTER_ZOOM_SETTINGS.sectorMaxZoom,
-      3,
-      18
-    ),
-    neighborhoodMaxZoom: bounded(
-      saved.neighborhoodMaxZoom,
-      DEFAULT_CLUSTER_ZOOM_SETTINGS.neighborhoodMaxZoom,
-      4,
-      18
-    ),
-    distanceRanges: DEFAULT_CLUSTER_ZOOM_SETTINGS.distanceRanges.map(
-      (fallback, index) => ({
-        maxZoom: bounded(savedRanges[index]?.maxZoom, fallback.maxZoom, 1, 18),
-        radiusKm: bounded(
-          savedRanges[index]?.radiusKm,
-          fallback.radiusKm,
-          0.5,
-          1000
-        ),
-      })
-    ),
-  };
 }
 
 export function saveMapLegendConfig(config: MapLegendConfig) {

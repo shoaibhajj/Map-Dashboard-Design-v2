@@ -56,14 +56,11 @@ const KNOWN_CITIES: Array<{ name: string; region: string; countryCode: string; l
   { name: 'Muscat', region: 'Muscat', countryCode: 'OMN', lng: 58.3829, lat: 23.588 },
 ]
 
-const COUNTRY_CLUSTER_CENTERS: Record<string, [number, number]> = {
-  SAU: [45.1, 23.9],
-  KWT: [47.6, 29.3],
-  BHR: [50.55, 26.1],
-  QAT: [51.2, 25.3],
-  ARE: [54.2, 24.1],
-  OMN: [56.1, 21.3],
-}
+// At the farthest map scales, these neighboring Gulf countries are visually
+// represented as one regional group. They split back into country clusters
+// once the map reaches country scale.
+const GULF_COUNTRY_CODES = new Set(['SAU', 'KWT', 'BHR', 'QAT', 'ARE', 'OMN'])
+const REGIONAL_CLUSTER_MAX_ZOOM = 2
 
 function vehicleGeography(vehicle: Vehicle, position: [number, number]) {
   const nearest = KNOWN_CITIES.reduce((best, city) => {
@@ -87,12 +84,15 @@ function vehicleGeography(vehicle: Vehicle, position: [number, number]) {
       : deltaLng > 0 ? 'east' : 'west'
   const sector = vehicle.status === 'moving' ? positionSector : directional ?? 'central'
   const district = vehicle.status === 'moving'
-    ? `${city}-${Math.floor(position[0] / 0.04)}-${Math.floor(position[1] / 0.04)}`
+    ? (vehicle.district || `${city}-${positionSector}`)
     : vehicle.district || (/^riyadh$/i.test(city) ? vehicle.zone.replace(/^riyadh\s*/i, '').trim() : '') || city
   return { countryCode, city, region, sector, district }
 }
 
 function getClusterLevel(zoom: number, legend: MapLegendConfig) {
+  // Zooms 0–2 are intentionally a regional scale: neighboring GCC countries
+  // share one cluster here, and split back into country clusters at zoom 3.
+  if (zoom <= REGIONAL_CLUSTER_MAX_ZOOM) return 'regional'
   if (legend.clusterGrouping === 'distance') return 'country'
   const settings = legend.clusterZoomSettings
   const countryMax = settings.countryMaxZoom
@@ -113,6 +113,9 @@ export function getVehicleClusterMaxZoom(legend: MapLegendConfig) {
 
 function getPartitionKey(vehicle: Vehicle, position: [number, number], level: string) {
   const geo = vehicleGeography(vehicle, position)
+  if (level === 'regional') {
+    return GULF_COUNTRY_CODES.has(geo.countryCode) ? 'gulf-region' : geo.countryCode
+  }
   if (level === 'country') return `${geo.countryCode}`
   if (level === 'region') return `${geo.countryCode}:${geo.region}`
   if (level === 'sector') return `${geo.countryCode}:${geo.region}:${geo.city}:${geo.sector}`
@@ -126,6 +129,51 @@ export function getClusterRadiusPixels(zoom: number, latitude: number, legend: M
     ?? orderedRanges[orderedRanges.length - 1]
   const metersPerPixel = 40075016.686 * Math.max(0.08, Math.cos(latitude * Math.PI / 180)) / (512 * 2 ** zoom)
   return Math.max(8, Math.min(512, (range?.radiusKm ?? 6) * 1000 / metersPerPixel))
+}
+
+export function getClusterAnchorCoordinates(
+  vehiclesInGroup: Vehicle[],
+  currentPositions?: Map<string, [number, number]>,
+): [number, number] {
+  const points = vehiclesInGroup.flatMap(vehicle => {
+    const [lng, lat] = currentPositions?.get(vehicle.id) ?? [vehicle.lng, vehicle.lat]
+    return Number.isFinite(lng) && Number.isFinite(lat) && Math.abs(lng) <= 180 && Math.abs(lat) <= 90
+      ? [{ lng, lat }]
+      : []
+  })
+  if (!points.length) return [0, 0]
+
+  // Select a real member position nearest the group's geographic mean. This
+  // keeps the pin on a known vehicle coordinate instead of a synthetic point
+  // that can land offshore or far from the represented vehicles.
+  const center = points.reduce<[number, number]>(([lng, lat], point) => [
+    lng + point.lng / points.length,
+    lat + point.lat / points.length,
+  ], [0, 0])
+  const longitudeScale = Math.cos(center[1] * Math.PI / 180)
+  const anchor = points.reduce((best, point) => {
+    const distance = Math.hypot((point.lng - center[0]) * longitudeScale, point.lat - center[1])
+    return distance < best.distance ? { point, distance } : best
+  }, { point: points[0], distance: Infinity }).point
+  return [anchor.lng, anchor.lat]
+}
+
+/**
+ * A cheap, deterministic check for administrative membership changes. It is
+ * intentionally independent of the viewport and status styling so moving a
+ * vehicle inside its current area does not rebuild every cluster.
+ */
+export function getVehicleClusterMembershipSignature(
+  vehicles: Vehicle[],
+  legend: MapLegendConfig,
+  zoom: number,
+  currentPositions?: Map<string, [number, number]>,
+) {
+  const level = getClusterLevel(zoom, legend)
+  return `${level}|${vehicles.map(vehicle => {
+    const position = currentPositions?.get(vehicle.id) ?? [vehicle.lng, vehicle.lat]
+    return `${vehicle.id}:${getPartitionKey(vehicle, position, level)}`
+  }).join('|')}`
 }
 
 export function createVehicleClusterPartitions(
@@ -143,7 +191,7 @@ export function createVehicleClusterPartitions(
     group.push(vehicle)
     groups.set(key, group)
   })
-  return [...groups.entries()].map(([key, vehiclesInGroup]) => {
+  return [...groups.entries()].flatMap(([key, vehiclesInGroup]) => {
     const id = `${level}-${key}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-')
     const vehicleData = createVehicleClusterData(vehiclesInGroup, legend, currentPositions)
     const members = vehicleData.features.flatMap(feature =>
@@ -152,18 +200,20 @@ export function createVehicleClusterPartitions(
         : [],
     )
 
-    if (legend.clusterGrouping !== 'administrative') return { id, data: vehicleData, members }
+    if (legend.clusterGrouping !== 'administrative') return [{ id, data: vehicleData, members }]
+
+    // For administrative clustering: a cluster represents 2 or more vehicles.
+    // Single vehicles are displayed as individual vehicle markers on the map.
+    if (members.length < 2) return []
 
     let clusterId = 0
     for (const character of key) clusterId = (clusterId * 31 + character.charCodeAt(0)) | 0
     clusterId = Math.abs(clusterId)
-    const memberCenter = vehicleData.features.reduce<[number, number]>((sum, feature) => [
-      sum[0] + feature.geometry.coordinates[0] / Math.max(1, vehicleData.features.length),
-      sum[1] + feature.geometry.coordinates[1] / Math.max(1, vehicleData.features.length),
-    ], [0, 0])
-    const coordinates = level === 'country'
-      ? COUNTRY_CLUSTER_CENTERS[key] ?? memberCenter
-      : memberCenter
+
+    // The rendered group represents an area. Keep its anchor tied to the
+    // source coordinates, not to the continuously moving GPS positions.
+    const coordinates = getClusterAnchorCoordinates(vehiclesInGroup)
+
     const bucketCounts = getVehicleClusterBuckets(vehiclesInGroup, legend).map((_, bucketIndex) => [
       `bucket_${bucketIndex}`,
       members.filter(member => member.bucketIndex === bucketIndex).length,
@@ -179,11 +229,11 @@ export function createVehicleClusterPartitions(
         ...Object.fromEntries(bucketCounts),
       },
     }
-    return {
+    return [{
       id,
       data: { type: 'FeatureCollection', features: [aggregate] },
       members,
-    }
+    }]
   })
 }
 

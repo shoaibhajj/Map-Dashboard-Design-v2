@@ -1,6 +1,7 @@
-import { useState, type CSSProperties } from 'react'
+import { useState, useRef, useEffect, type CSSProperties, type MouseEvent } from 'react'
 import type { Vehicle } from '../data/vehicles'
 import type { VehicleClusterSlice } from '../utils/vehicleClustering'
+import { Tilt } from './core/tilt'
 
 export interface OrbitingClusterMember {
   vehicle: Vehicle
@@ -20,214 +21,456 @@ interface Props {
   onVehicleSelect: (vehicle: Vehicle) => void
 }
 
-const FIRST_ORBIT_RADIUS = 54
-const ORBIT_GAP = 42
-const MIN_CLUSTER_SIZE = 22
-const MAX_CLUSTER_SIZE = 260
-const MIN_CLUSTER_ZOOM = 0
-const COUNTRY_ZOOM = 4
-const MAX_CLUSTER_ZOOM = 12
-
-function getBaseOrbitalClusterSize(ringCount: number) {
-  const outerRadius = FIRST_ORBIT_RADIUS + Math.max(0, ringCount - 1) * ORBIT_GAP
-  return Math.max(156, Math.ceil((outerRadius + 25) * 2))
+export function getOrbitalClusterScale(_ringCount: number, _zoom: number): number {
+  return 1
 }
 
-export function getOrbitalClusterScale(ringCount: number, zoom: number) {
-  const baseSize = getBaseOrbitalClusterSize(ringCount)
-  const normalizedZoom = Math.max(MIN_CLUSTER_ZOOM, Math.min(MAX_CLUSTER_ZOOM, zoom))
-  const zoomSize = normalizedZoom <= COUNTRY_ZOOM
-    ? 34 + (normalizedZoom / COUNTRY_ZOOM) * (72 - 34)
-    : 72 + ((normalizedZoom - COUNTRY_ZOOM) / (MAX_CLUSTER_ZOOM - COUNTRY_ZOOM)) * (MAX_CLUSTER_SIZE - 72)
-  return Math.min(1, zoomSize / baseSize)
+export function getOrbitalClusterSize(_ringCount: number, _zoom: number): number {
+  return 76 // 76px compact, high-precision footprint
 }
 
-export function getOrbitalClusterSize(ringCount: number, zoom: number) {
-  return Math.ceil(getBaseOrbitalClusterSize(ringCount) * getOrbitalClusterScale(ringCount, zoom))
+type FilterKey = 'all' | 'moving' | 'idle' | 'offline' | 'towed'
+type CardVariant = 'pure' | 'tinted'
+
+function getVehicleStatusKey(v: Vehicle): 'towed' | 'moving' | 'idle' | 'offline' {
+  if (v.telemetry?.towing) return 'towed'
+  if (v.status === 'moving') return 'moving'
+  if (v.status === 'idle') return 'idle'
+  return 'offline'
 }
 
-function statusLabel(vehicle: Vehicle, lang: 'en' | 'ar') {
-  if (vehicle.telemetry.towing) return lang === 'ar' ? 'مسحوبة' : 'Towed'
-  if (vehicle.status === 'moving') return lang === 'ar' ? 'متحركة' : 'Moving'
-  if (vehicle.status === 'idle') return lang === 'ar' ? 'متوقفة' : 'Idle'
-  return lang === 'ar' ? 'غير متصلة' : 'Offline'
+function getStatusLabel(key: string, lang: 'en' | 'ar'): string {
+  if (key === 'moving') return lang === 'ar' ? 'متحركة' : 'Moving'
+  if (key === 'idle') return lang === 'ar' ? 'متوقفة' : 'Idle'
+  if (key === 'offline') return lang === 'ar' ? 'غير متصلة' : 'Offline'
+  if (key === 'towed') return lang === 'ar' ? 'مسحوبة' : 'Towed'
+  return lang === 'ar' ? 'الكل' : 'All'
 }
 
-function sliceLabel(slice: VehicleClusterSlice, lang: 'en' | 'ar') {
-  if (slice.kind === 'moving') return lang === 'ar' ? 'متحركة' : 'Moving'
-  if (slice.kind === 'idle') return lang === 'ar' ? 'متوقفة' : 'Idle'
-  if (slice.kind === 'offline') return lang === 'ar' ? 'غير متصلة' : 'Offline'
-  if (slice.kind === 'towing') return lang === 'ar' ? 'مسحوبة' : 'Towed'
-  return slice.label
+function getStatusIcon(key: string): string {
+  if (key === 'moving') return '▶'
+  if (key === 'idle') return '⏸'
+  if (key === 'towed') return '⚠'
+  return '✕'
 }
 
-function OrbitTooltip({ vehicle, lang }: { vehicle: Vehicle; lang: 'en' | 'ar' }) {
+function getStatusRgb(key: string): string {
+  if (key === 'moving') return '34, 197, 94'
+  if (key === 'idle') return '249, 115, 22'
+  if (key === 'towed') return '234, 179, 8'
+  return '100, 116, 139'
+}
+
+export default function VehicleClusterMarker({
+  count,
+  slices: _slices,
+  members: _members,
+  clusterVehicles,
+  statusColors,
+  clusterLabel,
+  zoom: _zoom,
+  lang,
+  onClusterClick,
+  onVehicleSelect,
+}: Props) {
+  const [showPopup, setShowPopup] = useState(false)
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
+  const [cardVariant, setCardVariant] = useState<CardVariant>(() => {
+    try {
+      const saved = localStorage.getItem('cluster_card_variant')
+      return saved === 'tinted' ? 'tinted' : 'pure'
+    } catch {
+      return 'pure'
+    }
+  })
+  const [showPanelBackdrop, setShowPanelBackdrop] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('cluster_list_backdrop') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const popupRef = useRef<HTMLDivElement>(null)
+  const closeTimerRef = useRef<number | null>(null)
+
+  const handleMouseEnter = () => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    setShowPopup(true)
+  }
+
+  const handleMouseLeave = () => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current)
+    }
+    closeTimerRef.current = window.setTimeout(() => {
+      setShowPopup(false)
+      setActiveFilter('all')
+    }, 240)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current)
+      }
+    }
+  }, [])
+
+  // Prevent map wheel zoom when scrolling over popup
+  useEffect(() => {
+    const el = popupRef.current
+    if (!el || !showPopup) return
+    const stopWheel = (e: WheelEvent) => {
+      e.stopPropagation()
+    }
+    el.addEventListener('wheel', stopWheel, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', stopWheel)
+    }
+  }, [showPopup])
+
+  const toggleVariant = (variant: CardVariant, e: MouseEvent) => {
+    e.stopPropagation()
+    setCardVariant(variant)
+    try {
+      localStorage.setItem('cluster_card_variant', variant)
+    } catch {
+      // ignore
+    }
+  }
+
+  const toggleBackdrop = (e: MouseEvent) => {
+    e.stopPropagation()
+    setShowPanelBackdrop(prev => {
+      const next = !prev
+      try {
+        localStorage.setItem('cluster_list_backdrop', String(next))
+      } catch {
+        // ignore
+      }
+      return next
+    })
+  }
+
+  // 1. Group vehicles by status
+  const totalCount = clusterVehicles.length || count || 1
+  type StatusGroup = {
+    key: FilterKey
+    color: string
+    rgb: string
+    vehicles: Vehicle[]
+    label: string
+  }
+
+  const rawGroups: StatusGroup[] = [
+    {
+      key: 'moving',
+      color: statusColors.moving || '#22c55e',
+      rgb: getStatusRgb('moving'),
+      vehicles: clusterVehicles.filter(v => !v.telemetry?.towing && v.status === 'moving'),
+      label: getStatusLabel('moving', lang),
+    },
+    {
+      key: 'idle',
+      color: statusColors.idle || '#f97316',
+      rgb: getStatusRgb('idle'),
+      vehicles: clusterVehicles.filter(v => !v.telemetry?.towing && v.status === 'idle'),
+      label: getStatusLabel('idle', lang),
+    },
+    {
+      key: 'offline',
+      color: statusColors.offline || '#64748b',
+      rgb: getStatusRgb('offline'),
+      vehicles: clusterVehicles.filter(v => !v.telemetry?.towing && v.status === 'offline'),
+      label: getStatusLabel('offline', lang),
+    },
+    {
+      key: 'towed',
+      color: statusColors.towed || '#eab308',
+      rgb: getStatusRgb('towed'),
+      vehicles: clusterVehicles.filter(v => Boolean(v.telemetry?.towing)),
+      label: getStatusLabel('towed', lang),
+    },
+  ]
+  const groups = rawGroups.filter(g => g.vehicles.length > 0)
+
+  // 2. Compute Donut Arcs
+  const radius = 31
+  const circ = 2 * Math.PI * radius // ~194.78
+  const gap = groups.length > 1 ? 3.5 : 0
+  let consumedCirc = 0
+
+  const activeGroup = groups.find(g => g.key === activeFilter)
+  const displayCount = activeFilter === 'all' ? totalCount : activeGroup ? activeGroup.vehicles.length : totalCount
+  const coreLabel = lang === 'ar' ? 'مركبة' : 'Vehicles'
+
+  // 3. Filter vehicles for popup
+  const visibleVehicles = activeFilter === 'all'
+    ? clusterVehicles
+    : clusterVehicles.filter(v => getVehicleStatusKey(v) === activeFilter)
+
   return (
-    <span className="orbital-cluster-tooltip" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      <strong className="orbital-cluster-tooltip-name">{vehicle.name}</strong>
-      <span className="orbital-cluster-tooltip-meta">
-        <span>{vehicle.plate}</span>
-        <span>{statusLabel(vehicle, lang)}</span>
-      </span>
-      <span className="orbital-cluster-tooltip-location">{vehicle.location}</span>
-      <span className="orbital-cluster-tooltip-speed">
-        {lang === 'ar' ? 'السرعة' : 'Speed'}: {vehicle.speed} km/h
-      </span>
-    </span>
-  )
-}
-
-export default function VehicleClusterMarker({ count, slices, members, clusterVehicles, statusColors, clusterLabel, zoom, lang, onClusterClick, onVehicleSelect }: Props) {
-  const [showVehicleList, setShowVehicleList] = useState(false)
-  const compact = zoom >= 3 && zoom < 5
-  const scale = getOrbitalClusterScale(slices.length, zoom)
-  const size = getOrbitalClusterSize(slices.length, zoom)
-  const center = size / 2
-  const totalLabel = count.toLocaleString(lang === 'ar' ? 'ar' : 'en')
-  const groups = slices.map((slice, index) => ({
-    slice,
-    radius: FIRST_ORBIT_RADIUS + index * ORBIT_GAP,
-    vehicles: members.filter(member => member.bucketIndex === slice.bucketIndex),
-  }))
-
-  const coreScale = Math.max(0.42, Math.min(1, size / 44))
-  const statusGroups = [
-    { key: 'moving', color: statusColors.moving ?? '#16a34a', vehicles: clusterVehicles.filter(vehicle => !vehicle.telemetry.towing && vehicle.status === 'moving') },
-    { key: 'idle', color: statusColors.idle ?? '#f97316', vehicles: clusterVehicles.filter(vehicle => !vehicle.telemetry.towing && vehicle.status === 'idle') },
-    { key: 'offline', color: statusColors.offline ?? '#64748b', vehicles: clusterVehicles.filter(vehicle => !vehicle.telemetry.towing && vehicle.status === 'offline') },
-    { key: 'towed', color: statusColors.towed ?? '#f59e0b', vehicles: clusterVehicles.filter(vehicle => vehicle.telemetry.towing) },
-  ].filter(group => group.vehicles.length > 0)
-  const compactCircumference = 2 * Math.PI * 22
-  let consumedLength = 0
-  return (
-    <div className="orbital-cluster" style={{
-      width: size,
-      height: size,
-      '--orbit-scale': scale,
-      '--orbit-inverse-scale': 1 / scale,
-      '--orbit-core-scale': coreScale,
-      '--orbit-core-inverse-scale': 1 / coreScale,
-    } as CSSProperties} role="group" aria-label={lang === 'ar' ? `مجموعة تضم ${totalLabel} مركبة` : `Cluster of ${totalLabel} vehicles`}>
-      <button
-        type="button"
-        className={`orbital-cluster-core-hit${compact ? ' is-compact' : ''}${showVehicleList ? ' has-vehicle-list' : ''}`}
-        onMouseEnter={() => compact && setShowVehicleList(true)}
-        onMouseLeave={() => setShowVehicleList(false)}
-        onFocus={() => compact && setShowVehicleList(true)}
-        onBlur={() => setShowVehicleList(false)}
-        onClick={event => {
-          event.stopPropagation()
+    <div
+      className="donut-cluster-marker"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      role="group"
+      aria-label={lang === 'ar' ? `${clusterLabel}: ${totalCount} مركبة` : `${clusterLabel}: ${totalCount} vehicles`}
+    >
+      {/* Cluster Node (Donut Gauge) */}
+      <div
+        className="donut-cluster-wrapper"
+        onClick={e => {
+          e.stopPropagation()
           onClusterClick()
         }}
-        aria-label={lang === 'ar' ? `تكبير ${clusterLabel} تضم ${totalLabel} مركبة` : `Zoom into ${clusterLabel}, ${totalLabel} vehicles`}
       >
-        {compact && showVehicleList ? (
-          <span className="orbital-cluster-vehicle-list" role="tooltip" dir={lang === 'ar' ? 'rtl' : 'ltr'} onClick={event => event.stopPropagation()} onWheel={event => event.stopPropagation()}>
-            <strong>{lang === 'ar' ? `${totalLabel} مركبة` : `${totalLabel} vehicles`}</strong>
-            <span className="orbital-cluster-vehicle-list-rows">
-              <span className="orbital-cluster-vehicle-list-heading">
-                <span>{lang === 'ar' ? 'المركبة' : 'Vehicle'}</span>
-                <span>{lang === 'ar' ? 'السرعة' : 'Speed'}</span>
-                <span>{lang === 'ar' ? 'آخر تحديث' : 'Last update'}</span>
-              </span>
-              {clusterVehicles.map(vehicle => {
-                const isTowed = Boolean(vehicle.telemetry.towing)
-                const color = isTowed ? statusColors.towed : statusColors[vehicle.status]
-                return <span className="orbital-cluster-vehicle-list-row" key={vehicle.id} style={{ '--vehicle-status-color': color ?? '#64748b' } as CSSProperties}>
-                  <span className="orbital-cluster-vehicle-list-name" title={vehicle.name}><i />{vehicle.name}</span>
-                  <span className="orbital-cluster-vehicle-list-speed">{vehicle.speed} km/h</span>
-                  <span className="orbital-cluster-vehicle-list-update">{vehicle.lastUpdate || (lang === 'ar' ? 'غير متاح' : 'Unavailable')}</span>
-                </span>
-              })}
-            </span>
-          </span>
-        ) : (
-          <span className="orbital-cluster-summary-tooltip" role="tooltip" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-            <strong>{clusterLabel}</strong>
-            <span>{lang === 'ar' ? `المجموع: ${totalLabel} مركبة` : `Total: ${totalLabel} vehicles`}</span>
-            {slices.map(slice => <span key={slice.key}>{sliceLabel(slice, lang)}: {slice.count}</span>)}
-          </span>
-        )}
-      </button>
+        <svg className="donut-cluster-svg" viewBox="0 0 76 76" width="76" height="76">
+          <circle className="donut-cluster-track" cx="38" cy="38" r={radius} />
+          {groups.map(group => {
+            const arcLength = (group.vehicles.length / totalCount) * circ
+            const strokeLength = Math.max(0, arcLength - gap)
+            const offset = -consumedCirc
+            consumedCirc += arcLength
+            const isActive = activeFilter === group.key
 
-      {compact && <svg className="orbital-cluster-compact-ring" viewBox="0 0 52 52" aria-hidden="true">
-        <circle className="orbital-cluster-compact-track" cx="26" cy="26" r="22" />
-        {statusGroups.map(group => {
-          const length = Math.max(0, compactCircumference * group.vehicles.length / Math.max(1, clusterVehicles.length) - 2)
-          const offset = -consumedLength
-          consumedLength += compactCircumference * group.vehicles.length / Math.max(1, clusterVehicles.length)
-          return <circle key={group.key} className="orbital-cluster-compact-segment" cx="26" cy="26" r="22" stroke={group.color} strokeDasharray={`${length} ${compactCircumference}`} strokeDashoffset={offset} />
-        })}
-      </svg>}
+            return (
+              <circle
+                key={group.key}
+                className={`donut-cluster-segment${isActive ? ' is-active' : ''}`}
+                cx="38"
+                cy="38"
+                r={radius}
+                stroke={group.color}
+                strokeWidth={isActive ? 9.5 : 6.5}
+                strokeDasharray={`${strokeLength} ${circ}`}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                onMouseEnter={e => {
+                  e.stopPropagation()
+                  setActiveFilter(group.key)
+                }}
+              />
+            )
+          })}
+        </svg>
 
-      {!compact && groups.map(({ slice, radius, vehicles }, ringIndex) => {
-        const laneStyle = {
-          left: `${center}px`,
-          top: `${center}px`,
-          width: `${radius * 2}px`,
-          height: `${radius * 2}px`,
-          '--orbit-color': slice.color,
-          '--orbit-index': ringIndex,
-          '--orbit-delay': `${ringIndex * -0.55}s`,
-          '--orbit-scale': scale,
-          '--orbit-inverse-scale': 1 / scale,
-        } as CSSProperties
-
-        return (
-          <div
-            className="orbital-cluster-lane"
-            data-orbit-index={ringIndex}
-            data-orbit-outermost={ringIndex === groups.length - 1 ? 'true' : undefined}
-            key={slice.key}
-            style={laneStyle}
+        {/* Center Core Disc */}
+        <button
+          type="button"
+          className={`donut-core-disc${activeFilter === 'all' ? ' is-active' : ''}`}
+          onMouseEnter={e => {
+            e.stopPropagation()
+            setActiveFilter('all')
+          }}
+          onClick={e => {
+            e.stopPropagation()
+            onClusterClick()
+          }}
+          aria-label={lang === 'ar' ? `تكبير ${clusterLabel}` : `Zoom into ${clusterLabel}`}
+        >
+          <span
+            className="donut-core-count"
+            style={{
+              color: activeGroup ? activeGroup.color : undefined,
+            }}
           >
-            <div className="orbital-cluster-rotor">
-              <span className="orbital-cluster-ring-path" />
-              <svg className="orbital-cluster-ring-hit" viewBox={`0 0 ${radius * 2} ${radius * 2}`} aria-label={lang === 'ar' ? `${sliceLabel(slice, lang)}: ${slice.count} مركبة` : `${sliceLabel(slice, lang)}: ${slice.count} vehicles`}>
-                <circle cx={radius} cy={radius} r={radius - 2} fill="none" stroke="transparent" strokeWidth="18" pointerEvents="stroke" />
-              </svg>
-              <span className="orbital-cluster-ring-tooltip" role="tooltip" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                <strong>{sliceLabel(slice, lang)}</strong>
-                <span>{lang === 'ar' ? `${slice.count} مركبة` : `${slice.count} vehicles`}</span>
-              </span>
-              {vehicles.map(({ vehicle, bucketIndex }, index) => {
-                const phase = (index / Math.max(1, vehicles.length)) * 360 + ringIndex * 137.5
-                const nodeStyle = {
-                  '--orbit-phase': `${phase}deg`,
-                  '--orbit-radius': `${radius}px`,
-                  '--orbit-color': slice.color,
-                } as CSSProperties
-                const accessibleLabel = lang === 'ar'
-                  ? `${vehicle.name}، ${vehicle.plate}، ${statusLabel(vehicle, lang)}. اضغط لفتح التفاصيل`
-                  : `${vehicle.name}, ${vehicle.plate}, ${statusLabel(vehicle, lang)}. Select to open details`
+            {displayCount}
+          </span>
+        </button>
+      </div>
 
-                return (
-                  <span className="orbital-cluster-node" key={vehicle.id} style={nodeStyle}>
-                    <span className="orbital-cluster-node-upright">
-                      <button
-                        type="button"
-                        className="orbital-cluster-vehicle"
-                        aria-label={accessibleLabel}
-                        data-vehicle-id={vehicle.id}
-                        data-bucket-index={bucketIndex}
-                        onClick={event => {
-                          event.stopPropagation()
-                          onVehicleSelect(vehicle)
-                        }}
-                      >
-                        <span className="orbital-cluster-vehicle-dot" />
-                        <OrbitTooltip vehicle={vehicle} lang={lang} />
-                      </button>
-                    </span>
-                  </span>
-                )
-              })}
+      {/* Floating Tactical Capsule Stack (Free-floating cards with 3D Tilt) */}
+      {showPopup && (
+        <div
+          ref={popupRef}
+          className={`donut-popup-overlay${showPanelBackdrop ? ' has-panel-backdrop' : ''}`}
+          onClick={e => e.stopPropagation()}
+          onWheel={e => e.stopPropagation()}
+          dir={lang === 'ar' ? 'rtl' : 'ltr'}
+        >
+          {/* Minimal Floating Toolbar (Filter Chip + Mini Switchers) */}
+          <div className="donut-popup-toolbar">
+            {activeFilter !== 'all' && activeGroup ? (
+              <span
+                className="donut-filter-chip"
+                style={{
+                  color: activeGroup.color,
+                  borderColor: `rgba(${activeGroup.rgb}, 0.45)`,
+                  background: `rgba(${activeGroup.rgb}, 0.16)`,
+                }}
+              >
+                <span>{activeGroup.label}</span>
+                <span className="opacity-75">· {visibleVehicles.length}</span>
+              </span>
+            ) : (
+              <span className="donut-filter-chip is-muted">
+                {clusterLabel} · {totalCount}
+              </span>
+            )}
+
+            <div className="donut-toolbar-actions">
+              {/* Button 1: Backdrop Panel Visibility Switcher */}
+              <button
+                type="button"
+                className={`donut-mini-switcher${showPanelBackdrop ? ' is-active' : ''}`}
+                onClick={toggleBackdrop}
+                title={
+                  lang === 'ar'
+                    ? (showPanelBackdrop ? 'إخفاء خلفية القائمة (وضع البطاقات الحرة)' : 'إظهار خلفية لوحية للقائمة')
+                    : (showPanelBackdrop ? 'Hide list backdrop (free floating mode)' : 'Show panel backdrop for list')
+                }
+                aria-label={lang === 'ar' ? 'تبديل خلفية القائمة' : 'Toggle list backdrop'}
+              >
+                {showPanelBackdrop ? (
+                  /* Icon: Filled panel */
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" fillOpacity="0.28" />
+                    <line x1="9" y1="3" x2="9" y2="21" />
+                  </svg>
+                ) : (
+                  /* Icon: Transparent frame */
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="4" />
+                    <path d="m3 3 18 18" opacity="0.6" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Button 2: Card Style Switcher (Pure Dark vs Tinted Hybrid) */}
+              <button
+                type="button"
+                className="donut-mini-switcher"
+                onClick={e => toggleVariant(cardVariant === 'pure' ? 'tinted' : 'pure', e)}
+                title={
+                  lang === 'ar'
+                    ? (cardVariant === 'pure' ? 'التبديل إلى النمط الملون (Style 2)' : 'التبديل إلى النمط الداكن (Style 1)')
+                    : (cardVariant === 'pure' ? 'Switch to Tinted Hybrid' : 'Switch to Pure Dark')
+                }
+                aria-label={lang === 'ar' ? 'تبديل نمط الكبسولة' : 'Switch card style'}
+              >
+                {cardVariant === 'pure' ? (
+                  /* Icon representing Tinted style (palette/layers) */
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+                    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+                    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+                    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2Z" />
+                  </svg>
+                ) : (
+                  /* Icon representing Pure dark capsule style */
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="6" width="18" height="12" rx="6" />
+                    <line x1="12" y1="6" x2="12" y2="18" />
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
-        )
-      })}
 
-      <span className="orbital-cluster-count" aria-hidden="true">{totalLabel}</span>
+          {/* Floating Staggered/Stacked Vehicle Cards with 3D Tilt */}
+          <div
+            className="donut-popup-list"
+            onWheel={e => e.stopPropagation()}
+          >
+            {visibleVehicles.length === 0 ? (
+              <div className="capsule-empty-hint">
+                {lang === 'ar' ? 'لا توجد مركبات في هذا القسم' : 'No vehicles in this status'}
+              </div>
+            ) : (
+              visibleVehicles.map(vehicle => {
+                const statusKey = getVehicleStatusKey(vehicle)
+                const statusColor = statusColors[statusKey] || (statusKey === 'moving' ? '#22c55e' : statusKey === 'idle' ? '#f97316' : statusKey === 'towed' ? '#eab308' : '#64748b')
+                const statusRgb = getStatusRgb(statusKey)
+                const statusName = getStatusLabel(statusKey, lang)
+                const iconSymbol = getStatusIcon(statusKey)
+
+                const inlineStyle = {
+                  '--status-color': statusColor,
+                  '--status-glow': `rgba(${statusRgb}, 0.28)`,
+                  '--status-border': `rgba(${statusRgb}, 0.38)`,
+                  '--status-bg-strong': `rgba(${statusRgb}, 0.18)`,
+                  '--status-bg-soft': `rgba(${statusRgb}, 0.06)`,
+                  '--status-badge-bg': `rgba(${statusRgb}, 0.14)`,
+                } as CSSProperties
+
+                const cardClass = cardVariant === 'tinted'
+                  ? 'capsule-card is-tinted-pill'
+                  : 'capsule-card is-pure-pill'
+
+                return (
+                  <Tilt
+                    key={vehicle.id}
+                    rotationFactor={6}
+                    isRevese
+                    springOptions={{ stiffness: 400, damping: 28 }}
+                    className="capsule-tilt-wrapper"
+                  >
+                    <div
+                      className={cardClass}
+                      style={inlineStyle}
+                      onClick={e => {
+                        e.stopPropagation()
+                        onVehicleSelect(vehicle)
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${vehicle.name}, ${vehicle.driver || ''}, ${statusName}`}
+                    >
+                      {/* Segment 1: Identity & Pod */}
+                      <div className="capsule-segment-identity">
+                        <div
+                          className="capsule-icon-pod"
+                          style={{
+                            background: cardVariant === 'tinted' ? `rgba(${statusRgb}, 0.24)` : undefined,
+                            borderColor: cardVariant === 'tinted' ? `rgba(${statusRgb}, 0.42)` : undefined,
+                          }}
+                        >
+                          <span>{iconSymbol}</span>
+                        </div>
+                        <div className="capsule-meta-names">
+                          <div className="capsule-vname">
+                            <span>{vehicle.name}</span>
+                            <span className="capsule-status-tag">{statusName}</span>
+                          </div>
+                          {vehicle.driver ? (
+                            <div className="capsule-vdriver">
+                              {vehicle.driver}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Hairline Vertical Divider */}
+                      <div
+                        className="capsule-divider"
+                        style={{
+                          background: cardVariant === 'tinted' ? `rgba(${statusRgb}, 0.35)` : undefined,
+                        }}
+                      />
+
+                      {/* Segment 2: Telemetry */}
+                      <div className="capsule-segment-telemetry">
+                        <div className="capsule-speed-badge">
+                          <span>{vehicle.speed} {lang === 'ar' ? 'كم/س' : 'km/h'}</span>
+                        </div>
+                        <div className="capsule-time-badge">
+                          {vehicle.lastUpdate || (lang === 'ar' ? 'الآن' : 'Now')}
+                        </div>
+                      </div>
+                    </div>
+                  </Tilt>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

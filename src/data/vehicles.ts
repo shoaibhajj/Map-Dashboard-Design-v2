@@ -350,13 +350,153 @@ const riyadhDistricts: Array<Omit<DemoVehicleSeed, 'groupId'>> = [
   { city: 'Riyadh', zone: 'Al Shifa', coordinates: [46.7100, 24.5650] },
 ]
 
-const riyadhApproachCorridors: [number, number][][] = [
-  [[46.6800, 24.9500], [46.6780, 24.8650], [46.6770, 24.7900], [46.6753, 24.7136]],
-  [[46.6700, 24.4800], [46.6720, 24.5550], [46.6740, 24.6300], [46.6753, 24.7136]],
-  [[46.9800, 24.7200], [46.8800, 24.7180], [46.7800, 24.7160], [46.6753, 24.7136]],
-  [[46.3500, 24.7100], [46.4550, 24.7110], [46.5650, 24.7120], [46.6753, 24.7136]],
-  [[46.9100, 24.9000], [46.8250, 24.8400], [46.7450, 24.7800], [46.6753, 24.7136]],
-  [[46.4500, 24.5300], [46.5250, 24.5900], [46.6000, 24.6500], [46.6753, 24.7136]],
+const riyadhRoutes: Array<{
+  name: string
+  zone: string
+  sector: Vehicle['geographicSector']
+  groupId: string
+  coordinates: [number, number][]
+}> = [
+  {
+    name: 'King Fahd Rd North',
+    zone: 'Al Olaya / KAFD',
+    sector: 'north',
+    groupId: 'riyadh-north',
+    coordinates: [[46.6850, 24.6900], [46.6750, 24.7200], [46.6550, 24.7600], [46.6350, 24.8100], [46.6150, 24.8600]],
+  },
+  {
+    name: 'King Fahd Rd South',
+    zone: 'Al Murabba / Al Olaya',
+    sector: 'central',
+    groupId: 'riyadh-central',
+    coordinates: [[46.6200, 24.8400], [46.6400, 24.7900], [46.6600, 24.7400], [46.6800, 24.7000], [46.7000, 24.6600]],
+  },
+  {
+    name: 'Northern Ring Rd East',
+    zone: 'Al Nakheel / Al Izdihar',
+    sector: 'north',
+    groupId: 'riyadh-north',
+    coordinates: [[46.5900, 24.7650], [46.6400, 24.7700], [46.6900, 24.7750], [46.7400, 24.7800], [46.7900, 24.7850]],
+  },
+  {
+    name: 'Northern Ring Rd West',
+    zone: 'Granada / Hittin',
+    sector: 'north',
+    groupId: 'riyadh-north',
+    coordinates: [[46.7850, 24.7840], [46.7350, 24.7790], [46.6850, 24.7740], [46.6350, 24.7690], [46.5850, 24.7640]],
+  },
+  {
+    name: 'Eastern Ring Rd South',
+    zone: 'Al Hamra / Exit 18',
+    sector: 'east',
+    groupId: 'riyadh-east',
+    coordinates: [[46.7850, 24.8100], [46.7800, 24.7600], [46.7750, 24.7100], [46.7700, 24.6600], [46.7650, 24.6100]],
+  },
+  {
+    name: 'Eastern Ring Rd North',
+    zone: 'Al Sulaymaniyah / Exit 8',
+    sector: 'east',
+    groupId: 'riyadh-east',
+    coordinates: [[46.7680, 24.6200], [46.7720, 24.6700], [46.7760, 24.7200], [46.7800, 24.7700], [46.7840, 24.8200]],
+  },
+  {
+    name: 'Khurais Rd West',
+    zone: 'Al Rawdah / Kingdom Centre',
+    sector: 'east',
+    groupId: 'riyadh-east',
+    coordinates: [[46.8400, 24.7450], [46.7800, 24.7250], [46.7200, 24.7050], [46.6800, 24.6950]],
+  },
+  {
+    name: 'Khurais Rd East',
+    zone: 'King Fahd Medical / Al Naseem',
+    sector: 'central',
+    groupId: 'riyadh-central',
+    coordinates: [[46.6850, 24.6980], [46.7300, 24.7100], [46.7900, 24.7300], [46.8500, 24.7500]],
+  },
+  {
+    name: 'Makkah Rd Corridor',
+    zone: 'Al Hada / Diplomatic Quarter',
+    sector: 'west',
+    groupId: 'riyadh-west',
+    coordinates: [[46.6300, 24.6700], [46.6700, 24.6750], [46.7100, 24.6800], [46.7500, 24.6850]],
+  },
+  {
+    name: 'King Abdullah Rd East',
+    zone: 'King Saud Univ / Al Hamra',
+    sector: 'north',
+    groupId: 'riyadh-north',
+    coordinates: [[46.6200, 24.7300], [46.6600, 24.7350], [46.7100, 24.7420], [46.7600, 24.7500]],
+  },
+  {
+    name: 'King Abdullah Rd West',
+    zone: 'Al Hamra / King Saud Univ',
+    sector: 'central',
+    groupId: 'riyadh-central',
+    coordinates: [[46.7580, 24.7490], [46.7080, 24.7410], [46.6580, 24.7340], [46.6180, 24.7290]],
+  },
+  {
+    name: 'King Abdulaziz Rd North',
+    zone: 'Al Wurud / Al Yasmin',
+    sector: 'north',
+    groupId: 'riyadh-north',
+    coordinates: [[46.6900, 24.7000], [46.6850, 24.7400], [46.6800, 24.7800], [46.6750, 24.8200]],
+  },
+  {
+    name: 'Olaya St South',
+    zone: 'Al Wurud / Al Faisaliah',
+    sector: 'central',
+    groupId: 'riyadh-central',
+    coordinates: [[46.6750, 24.7350], [46.6800, 24.7150], [46.6850, 24.6950], [46.6900, 24.6750]],
+  },
+  {
+    name: 'Olaya St North',
+    zone: 'Al Faisaliah / Al Wurud',
+    sector: 'central',
+    groupId: 'riyadh-central',
+    coordinates: [[46.6890, 24.6780], [46.6840, 24.6970], [46.6790, 24.7160], [46.6740, 24.7360]],
+  },
+  {
+    name: 'Takhassusi St Corridor',
+    zone: 'Al Rahmaniyah / Mohammadiyyah',
+    sector: 'west',
+    groupId: 'riyadh-west',
+    coordinates: [[46.6650, 24.6850], [46.6550, 24.7150], [46.6450, 24.7450], [46.6350, 24.7750]],
+  },
+  {
+    name: 'Prince Turki Alawwal Rd',
+    zone: 'Hittin / Umm Al Hamam',
+    sector: 'west',
+    groupId: 'riyadh-west',
+    coordinates: [[46.6150, 24.7100], [46.6200, 24.7400], [46.6250, 24.7700], [46.6300, 24.8000]],
+  },
+  {
+    name: 'Airport Rd North',
+    zone: 'Exit 8 / King Khalid Airport',
+    sector: 'north',
+    groupId: 'riyadh-north',
+    coordinates: [[46.7600, 24.8000], [46.7450, 24.8500], [46.7300, 24.9000], [46.7150, 24.9500]],
+  },
+  {
+    name: 'Southern Ring Rd',
+    zone: 'Al Shifa / Al Aziziyah',
+    sector: 'south',
+    groupId: 'riyadh-south',
+    coordinates: [[46.6600, 24.5600], [46.7100, 24.5650], [46.7600, 24.5700], [46.8100, 24.5750]],
+  },
+  {
+    name: 'Western Ring Rd North',
+    zone: 'Dhahrat Laban / Al Awali',
+    sector: 'west',
+    groupId: 'riyadh-west',
+    coordinates: [[46.5600, 24.6100], [46.5650, 24.6600], [46.5700, 24.7100], [46.5750, 24.7600]],
+  },
+  {
+    name: 'Diriyah & Hanifa Corridor',
+    zone: 'Diriyah / Al Khuzama',
+    sector: 'west',
+    groupId: 'riyadh-west',
+    coordinates: [[46.5400, 24.7500], [46.5600, 24.7400], [46.5800, 24.7200], [46.6000, 24.7000]],
+  },
 ]
 
 const saudiCityCenters: Array<{ city: string; administrativeRegion: string; coordinates: [number, number] }> = [
@@ -388,12 +528,78 @@ const saudiCityAssignments = [
   11, // Najran: 1
 ]
 
-const neighboringCityCenters: Array<{ city: string; country: string; countryCode: string; coordinates: [number, number] }> = [
-  { city: 'Kuwait City', country: 'Kuwait', countryCode: 'KWT', coordinates: [47.9774, 29.3759] },
-  { city: 'Manama', country: 'Bahrain', countryCode: 'BHR', coordinates: [50.5876, 26.2235] },
-  { city: 'Doha', country: 'Qatar', countryCode: 'QAT', coordinates: [51.5310, 25.2854] },
-  { city: 'Abu Dhabi', country: 'United Arab Emirates', countryCode: 'ARE', coordinates: [54.3773, 24.4539] },
-  { city: 'Muscat', country: 'Oman', countryCode: 'OMN', coordinates: [58.3829, 23.5880] },
+const neighboringCityCenters: Array<{
+  city: string
+  country: string
+  countryCode: string
+  coordinates: [number, number]
+  districts: Array<{ name: string; coordinates: [number, number] }>
+}> = [
+  {
+    city: 'Kuwait City',
+    country: 'Kuwait',
+    countryCode: 'KWT',
+    coordinates: [47.9774, 29.3759],
+    districts: [
+      { name: 'Kuwait City Center', coordinates: [47.9774, 29.3759] },
+      { name: 'Shuwaikh Industrial', coordinates: [47.9250, 29.3450] },
+      { name: 'Salmiya Commercial', coordinates: [48.0750, 29.3350] },
+      { name: 'Kuwait Int Airport Hub', coordinates: [47.9780, 29.2260] },
+      { name: 'Al Ahmadi Logistics', coordinates: [48.0800, 29.0800] },
+    ],
+  },
+  {
+    city: 'Manama',
+    country: 'Bahrain',
+    countryCode: 'BHR',
+    coordinates: [50.5876, 26.2235],
+    districts: [
+      { name: 'Manama Financial Harbour', coordinates: [50.5876, 26.2235] },
+      { name: 'Seef District', coordinates: [50.5400, 26.2400] },
+      { name: 'Muharraq Logistics Hub', coordinates: [50.6200, 26.2700] },
+      { name: 'Sitra Industrial Area', coordinates: [50.6100, 26.1550] },
+      { name: 'Riffa Central Hub', coordinates: [50.5600, 26.1300] },
+    ],
+  },
+  {
+    city: 'Doha',
+    country: 'Qatar',
+    countryCode: 'QAT',
+    coordinates: [51.5310, 25.2854],
+    districts: [
+      { name: 'West Bay Commercial', coordinates: [51.5310, 25.2854] },
+      { name: 'Lusail Marina Hub', coordinates: [51.5200, 25.4200] },
+      { name: 'Hamad Int Airport Hub', coordinates: [51.6150, 25.2730] },
+      { name: 'Doha Industrial Depot', coordinates: [51.4300, 25.1900] },
+      { name: 'Al Sadd Central', coordinates: [51.4900, 25.2850] },
+    ],
+  },
+  {
+    city: 'Abu Dhabi',
+    country: 'United Arab Emirates',
+    countryCode: 'ARE',
+    coordinates: [54.3773, 24.4539],
+    districts: [
+      { name: 'Abu Dhabi Island Hub', coordinates: [54.3773, 24.4539] },
+      { name: 'Mussafah Logistics Hub', coordinates: [54.5100, 24.3400] },
+      { name: 'Khalifa Port Terminal', coordinates: [54.6700, 24.8100] },
+      { name: 'Dubai Business Bay', coordinates: [55.2700, 25.1850] },
+      { name: 'Jebel Ali Logistics Yard', coordinates: [55.0300, 25.0100] },
+    ],
+  },
+  {
+    city: 'Muscat',
+    country: 'Oman',
+    countryCode: 'OMN',
+    coordinates: [58.3829, 23.5880],
+    districts: [
+      { name: 'Muscat Ruwi Central', coordinates: [58.3829, 23.5880] },
+      { name: 'Muttrah Port Terminal', coordinates: [58.5600, 23.6250] },
+      { name: 'Bawshar Commercial Hub', coordinates: [58.4000, 23.5700] },
+      { name: 'Muscat Int Airport Hub', coordinates: [58.2800, 23.5930] },
+      { name: 'Seeb Industrial Logistics', coordinates: [58.1800, 23.6700] },
+    ],
+  },
 ]
 
 const generatedDemoVehicles: Vehicle[] = Array.from({ length: 120 }, (_, index): Vehicle => {
@@ -403,58 +609,61 @@ const generatedDemoVehicles: Vehicle[] = Array.from({ length: 120 }, (_, index):
   const isSaudi = index < 95
   let seed: DemoVehicleSeed
 
-  if (isRiyadh && index < 30) {
-    const corridorIndex = Math.floor(index / 5) % riyadhApproachCorridors.length
-    const inbound = index < 15
-    const corridor = riyadhApproachCorridors[corridorIndex]
-    const route = inbound ? [...corridor, ...corridor.slice(0, -1).reverse()] : [...corridor.slice().reverse(), ...corridor.slice(1)]
-    const laneOffset = ((index % 5) - 2) * 0.0018
-    const mapRoute = route.map(([lng, lat]) => [lng + laneOffset, lat + laneOffset * 0.45] as [number, number])
-    const start = mapRoute[0]
+  if (isRiyadh && index < 20) {
+    // 20 unique independent routes across Riyadh — NO CLONED CONVOYS!
+    const routeDef = riyadhRoutes[index % riyadhRoutes.length]
     seed = {
       city: 'Riyadh',
-      zone: inbound ? `Riyadh ${['North', 'South', 'East', 'West', 'Northeast', 'Southwest'][corridorIndex]} inbound` : `Riyadh ${['North', 'South', 'East', 'West', 'Northeast', 'Southwest'][corridorIndex]} outbound`,
-      countryCode: 'SAU', administrativeRegion: 'Riyadh', geographicSector: (['north', 'south', 'east', 'west', 'north', 'south'] as const)[corridorIndex],
-      coordinates: start,
-      groupId: ['riyadh-north', 'riyadh-south', 'riyadh-east', 'riyadh-west', 'riyadh-central'][corridorIndex % 5],
-      mapRoute,
+      zone: routeDef.zone,
+      countryCode: 'SAU',
+      administrativeRegion: 'Riyadh',
+      district: routeDef.name,
+      geographicSector: routeDef.sector,
+      coordinates: routeDef.coordinates[0],
+      groupId: routeDef.groupId,
+      mapRoute: routeDef.coordinates,
     }
   } else if (isRiyadh) {
-    const district = riyadhDistricts[(index - 30) % riyadhDistricts.length]
-    const localIndex = index - 30
-    const latOffset = (((localIndex * 7) % 9) - 4) * 0.004
-    const lngOffset = (((localIndex * 5) % 11) - 5) * 0.004
+    // 40 distributed vehicles across various Riyadh districts
+    const district = riyadhDistricts[(index - 20) % riyadhDistricts.length]
+    const localIndex = index - 20
+    const latOffset = (((localIndex * 7) % 11) - 5) * 0.003
+    const lngOffset = (((localIndex * 13) % 13) - 6) * 0.003
     seed = {
       ...district,
-      countryCode: 'SAU', administrativeRegion: 'Riyadh', district: district.zone,
+      countryCode: 'SAU',
+      administrativeRegion: 'Riyadh',
+      district: district.zone,
       geographicSector: district.zone === 'Al Olaya' || district.zone === 'Al Malaz' ? 'central' : undefined,
       coordinates: [district.coordinates[0] + lngOffset, district.coordinates[1] + latOffset],
       groupId: ['riyadh-central', 'riyadh-north', 'riyadh-south', 'riyadh-east', 'riyadh-west'][localIndex % 5],
     }
   } else if (isSaudi) {
+    // 35 vehicles distributed realistically across Saudi Arabia cities
     const cityIndex = saudiCityAssignments[index - 60]
     const city = saudiCityCenters[cityIndex]
     const localIndex = saudiCityAssignments.slice(0, index - 60).filter(assignedCity => assignedCity === cityIndex).length
-    const latOffset = (((localIndex * 7) % 7) - 3) * 0.025
-    const lngOffset = (((localIndex * 5) % 9) - 4) * 0.025
+    const latOffset = (((localIndex * 5) % 7) - 3) * 0.018
+    const lngOffset = (((localIndex * 9) % 9) - 4) * 0.018
     seed = {
       city: city.city,
       zone: city.city,
-      countryCode: 'SAU', administrativeRegion: city.administrativeRegion,
+      countryCode: 'SAU',
+      administrativeRegion: city.administrativeRegion,
       coordinates: [city.coordinates[0] + lngOffset, city.coordinates[1] + latOffset],
       groupId: null,
     }
   } else {
+    // 25 vehicles in neighboring Gulf countries (5 per country at real land landmarks)
     const neighborIndex = index - 95
     const neighbor = neighboringCityCenters[Math.floor(neighborIndex / 5)]
-    const offsets: Array<[number, number]> = [[0, 0], [-0.006, 0.004], [0.005, 0.006], [-0.004, -0.006], [0.007, -0.003]]
-    const [lngOffset, latOffset] = offsets[neighborIndex % offsets.length]
+    const district = neighbor.districts[neighborIndex % neighbor.districts.length]
     seed = {
       city: neighbor.city,
-      zone: neighbor.country,
+      zone: district.name,
       countryCode: neighbor.countryCode,
-      administrativeRegion: neighbor.country,
-      coordinates: [neighbor.coordinates[0] + lngOffset, neighbor.coordinates[1] + latOffset],
+      administrativeRegion: neighbor.city,
+      coordinates: [...district.coordinates],
       groupId: null,
     }
   }

@@ -1,0 +1,498 @@
+/* ==========================================================================
+   DONUT VEHICLE CLUSTER & TACTICAL FLOATING CAPSULE CARDS
+   Approved Design Specification:
+   - Donut Gauge (Far Zoom Segmented Donut with Centered Count + "مركبة")
+   - Hover-Segment Dynamic Filtering (Center = All, Segments = Specific status)
+   - Tactile Floating Capsule Cards (Variant 1: Pure Pill, Variant 2: Tinted Hybrid)
+   - Live Switcher [ داكنة | ملونة ] inside the popup header
+   - Click to Select Vehicle + Fly to details
+   ========================================================================== */
+
+:root {
+  --donut-size: 76px;
+  --donut-core-size: 50px;
+  --donut-radius: 31px;
+}
+
+/* Base Cluster Marker Container */
+.donut-cluster-marker {
+  position: relative;
+  display: block;
+  overflow: visible !important;
+  isolation: isolate;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mapboxgl-marker.donut-cluster-marker:hover,
+.mapboxgl-marker.donut-cluster-marker:focus-within {
+  z-index: 10020 !important;
+}
+
+.donut-cluster-wrapper {
+  position: relative;
+  width: var(--donut-size);
+  height: var(--donut-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* SVG Gauge Ring */
+.donut-cluster-svg {
+  transform: rotate(-90deg);
+  overflow: visible;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
+}
+
+.donut-cluster-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 6.5;
+}
+.light .donut-cluster-track {
+  stroke: rgba(0, 0, 0, 0.08);
+}
+
+.donut-cluster-segment {
+  fill: none;
+  cursor: pointer;
+  pointer-events: stroke;
+  transition: stroke-width 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.2s, filter 0.2s;
+}
+
+.donut-cluster-segment:hover,
+.donut-cluster-segment.is-active {
+  stroke-width: 9.5 !important;
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+/* Center Core Disc */
+.donut-core-disc {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--donut-core-size);
+  height: var(--donut-core-size);
+  border-radius: 50%;
+  background: rgba(9, 29, 36, 0.96);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.8), 0 4px 14px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 5;
+}
+
+.light .donut-core-disc {
+  background: #ffffff;
+  border-color: #cbdce2;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.donut-core-disc:hover,
+.donut-core-disc.is-active {
+  transform: translate(-50%, -50%) scale(1.08);
+  border-color: var(--primary, #22c55e);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.42), inset 0 2px 7px rgba(0, 0, 0, 0.4);
+}
+
+.donut-core-disc:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+.donut-core-count {
+  font-size: 19px;
+  font-weight: 900;
+  color: #ffffff;
+  font-family: var(--font-mono, "SF Mono", monospace);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.light .donut-core-count {
+  color: #0a252d;
+}
+
+/* ==========================================================================
+   FLOATING VEHICLE CARDS (HUD OVERLAY - NO CONTAINER BOX, FREE FLOATING)
+   As shown in Reference 3: Individual stacked capsules with 3D Tilt
+   ========================================================================== */
+
+.donut-popup-overlay {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 255px; /* Compact width matching left drawer density */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  pointer-events: auto;
+  z-index: 10050;
+  overflow: visible;
+  animation: donutPopupEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overscroll-behavior: contain;
+}
+
+[dir="ltr"] .donut-popup-overlay {
+  text-align: left;
+}
+
+/* Optional Backdrop Panel Mode (when toggled via mini button) */
+.donut-popup-overlay.has-panel-backdrop {
+  background: rgba(8, 26, 33, 0.92) !important;
+  border: 1px solid rgba(45, 212, 191, 0.3) !important;
+  border-radius: 14px !important;
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(34, 197, 94, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  padding: 6px 6px 4px 6px;
+}
+.light .donut-popup-overlay.has-panel-backdrop {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: #cbdce2 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
+}
+
+@keyframes donutPopupEnter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+/* Minimal Floating Toolbar (Filter Chip + Mini Action Switchers) */
+.donut-popup-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  min-height: 22px;
+  margin-bottom: 2px;
+}
+
+.donut-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.donut-filter-chip {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(8px);
+}
+
+.donut-filter-chip.is-muted {
+  color: #8eaeb6;
+  background: rgba(9, 27, 34, 0.75);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.light .donut-filter-chip.is-muted {
+  color: #475569;
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #cbdce2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Discreet Mini Switcher Button (Small Icon Only) */
+.donut-mini-switcher {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(9, 29, 36, 0.92);
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  color: #4ade80;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+  flex-shrink: 0;
+}
+.light .donut-mini-switcher {
+  background: #ffffff;
+  border-color: #cbdce2;
+  color: #16a34a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.donut-mini-switcher:hover,
+.donut-mini-switcher.is-active {
+  transform: scale(1.1);
+  border-color: #22c55e;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+}
+.light .donut-mini-switcher:hover,
+.light .donut-mini-switcher.is-active {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+/* Floating Vehicle List (Independent items, no boxed container) */
+.donut-popup-list {
+  max-height: 205px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 2px 3px 6px 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.donut-popup-list::-webkit-scrollbar {
+  width: 3px;
+}
+.donut-popup-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.donut-popup-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+.light .donut-popup-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Tilt Wrapper */
+.capsule-tilt-wrapper {
+  width: 100%;
+  display: block;
+}
+
+/* ==========================================================================
+   TACTICAL CAPSULE CARDS (Cruds in List)
+   Small, compact sizing matching Reference 2 & 3
+   ========================================================================== */
+
+.capsule-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 10px; /* Rounded capsule as in Reference 3 */
+  padding: 5px 8px; /* Compact padding */
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  position: relative;
+  text-decoration: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* VARIANT 1: PURE PILL CAPSULE (الكبسولة الداكنة المرتفعة - النمط الأول) */
+.capsule-card.is-pure-pill {
+  background: linear-gradient(180deg, rgba(8, 27, 34, 0.94) 0%, rgba(4, 16, 21, 0.98) 100%);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  box-shadow: 
+    0 6px 16px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.light .capsule-card.is-pure-pill {
+  background: linear-gradient(180deg, #ffffff 0%, #f4f8fa 100%);
+  border: 1px solid #c9dce2;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.capsule-card.is-pure-pill:hover {
+  border-color: var(--status-color);
+  box-shadow: 
+    0 8px 22px var(--status-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+/* VARIANT 2: TINTED HYBRID CAPSULE (الكبسولة المدمجة مع خلفية ملونة - النمط الثاني) */
+.capsule-card.is-tinted-pill {
+  background: linear-gradient(90deg, var(--status-bg-strong) 0%, rgba(6, 21, 28, 0.95) 100%);
+  border: 1px solid var(--status-border);
+  box-shadow: 
+    0 6px 16px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 10px var(--status-glow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.light .capsule-card.is-tinted-pill {
+  background: linear-gradient(90deg, var(--status-bg-soft) 0%, #ffffff 100%);
+  border: 1px solid var(--status-border);
+  box-shadow: 0 4px 14px var(--status-glow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.capsule-card.is-tinted-pill:hover {
+  border-color: var(--status-color);
+  box-shadow: 
+    0 8px 24px var(--status-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Segment 1: Identity & Pod */
+.capsule-segment-identity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+
+.capsule-icon-pod {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+  color: var(--status-color);
+  font-size: 9.5px;
+}
+.light .capsule-icon-pod {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.capsule-meta-names {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5px;
+  min-width: 0;
+}
+
+.capsule-vname {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text, #edf7f8);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.light .capsule-vname {
+  color: #0a252d;
+}
+
+.capsule-status-tag {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 0.5px 4px;
+  border-radius: 9999px;
+  background: var(--status-badge-bg);
+  color: var(--status-color);
+  border: 1px solid var(--status-border);
+  letter-spacing: 0.01em;
+}
+
+.capsule-vdriver {
+  font-size: 9px;
+  color: #94a3b8;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+.light .capsule-vdriver {
+  color: #64748b;
+}
+
+/* Hairline Vertical Divider */
+.capsule-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+.light .capsule-divider {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Segment 2: Telemetry */
+.capsule-segment-telemetry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.capsule-speed-badge {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono, "SF Mono", monospace);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--status-color);
+  white-space: nowrap;
+}
+
+.capsule-time-badge {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #e2e8f0; /* Crisp bright high-contrast light slate in dark mode */
+  background: rgba(255, 255, 255, 0.09);
+  padding: 1.5px 6px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.light .capsule-time-badge {
+  color: #0f172a;
+  background: #e8f0f3;
+  border-color: #cbdce2;
+}
+
+.capsule-empty-hint {
+  text-align: center;
+  padding: 12px 10px;
+  color: var(--muted, #8eaeb6);
+  font-size: 11px;
+  background: rgba(8, 27, 34, 0.8);
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+}
+

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { ColorPickerField } from './ColorPicker'
 import FuelLevelGauge from './ui/FuelLevelGauge'
@@ -21,8 +21,6 @@ import {
   type MapColorRange,
   type MapLegendConfig,
   type FuelUnit,
-  type ClusterZoomSettings,
-  type ClusterGroupingMode,
   type CustomSensorDefinition,
 } from '../utils/mapLegend'
 
@@ -118,10 +116,6 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
     ranges,
     ...(isFuel ? { fuelRangesByUnit: { ...config.fuelRangesByUnit, [config.fuelUnit]: ranges } } : {}),
     ...(!isFuel ? { metricRangesByKey: { ...config.metricRangesByKey, [config.metricKey]: ranges } } : {}),
-  })
-  const updateClusterSettings = (patch: Partial<ClusterZoomSettings>) => onChange({
-    ...config,
-    clusterZoomSettings: { ...config.clusterZoomSettings, ...patch },
   })
   const currentRanges = isFuel
     ? normalizeFuelRanges(config.ranges, scaleMax)
@@ -461,6 +455,14 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
           </select>
         </label>
 
+        <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700 }}>
+          {t('map_marker_shape')}
+          <select value={config.markerShape} onChange={event => onChange({ ...config, markerShape: event.target.value as MapLegendConfig['markerShape'] })} style={inputStyle}>
+            <option value="arrow">{t('map_marker_arrow')}</option>
+            <option value="vehicle">{t('map_marker_vehicle')}</option>
+          </select>
+        </label>
+
         {config.mode === 'status' ? (
           <div style={{ display: 'grid', gap: 7 }}>
             <div style={{ fontSize: 11, fontWeight: 750 }}>{t('map_status_colors')}</div>
@@ -584,63 +586,6 @@ export default function LegendPanel({ config, vehicles, onChange, onClose }: Pro
             getBoundaryPreview={getMetricBoundaryPreview}
           />}
         </>}
-
-        <div style={{ display: 'grid', gap: 9, borderTop: '1px solid var(--border)', paddingTop: 11 }}>
-          <div style={{ fontSize: 11, fontWeight: 750 }}>{t('map_cluster_settings')}</div>
-          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-            <span>{t('map_cluster_enabled')}</span>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={config.clusteringEnabled}
-              onChange={event => onChange({ ...config, clusteringEnabled: event.target.checked })}
-              aria-label={t('map_cluster_enabled')}
-              style={{ width: 36, height: 20, accentColor: 'var(--primary)', cursor: 'pointer' }}
-            />
-          </label>
-          <small style={{ marginTop: -5, color: 'var(--muted-foreground)', fontSize: 9.5, lineHeight: 1.4 }}>{t('map_cluster_toggle_hint')}</small>
-          {config.clusteringEnabled && <>
-            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700 }}>
-              {t('map_cluster_grouping')}
-              <select value={config.clusterGrouping} onChange={event => onChange({ ...config, clusterGrouping: event.target.value as ClusterGroupingMode })} style={inputStyle}>
-                <option value="administrative">{t('map_cluster_administrative')}</option>
-                <option value="distance">{t('map_cluster_distance')}</option>
-              </select>
-            </label>
-          {config.clusterGrouping === 'administrative' ? <div style={{ display: 'grid', gridTemplateColumns: '1fr 82px', gap: '7px 9px', alignItems: 'center', fontSize: 10.5 }}>
-            <p style={{ gridColumn: '1 / -1', margin: 0, color: 'var(--muted-foreground)', fontSize: 10, lineHeight: 1.45 }}>{t('map_cluster_admin_hint')}</p>
-            {([
-              ['countryMaxZoom', t('map_cluster_country')],
-              ['regionMaxZoom', t('map_cluster_region')],
-              ['sectorMaxZoom', t('map_cluster_sector')],
-              ['neighborhoodMaxZoom', t('map_cluster_neighborhood')],
-            ] as const).map(([key, label]) => <Fragment key={key}>
-              <span>{label}</span>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <input type="number" min="1" max="18" step="1" value={config.clusterZoomSettings[key]} aria-label={`${label} · ${t('map_zoom_maximum')}`} onChange={event => updateClusterSettings({ [key]: Number(event.target.value) } as Partial<ClusterZoomSettings>)} style={{ ...inputStyle, width: 54, height: 30, padding: '0 6px' }}/>
-                <small style={{ color: 'var(--muted-foreground)' }}>z</small>
-              </label>
-            </Fragment>)}
-          </div> : <div style={{ display: 'grid', gap: 7 }}>
-            <p style={{ margin: 0, color: 'var(--muted-foreground)', fontSize: 10, lineHeight: 1.45 }}>{t('map_cluster_distance_hint')}</p>
-            {config.clusterZoomSettings.distanceRanges.map((range, index) => <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 75px 1fr 75px', alignItems: 'center', gap: 6, fontSize: 10 }}>
-              <span>{t('map_cluster_until_zoom')}</span>
-              <input type="number" min="1" max="18" step="1" value={range.maxZoom} aria-label={`${t('map_cluster_until_zoom')} ${index + 1}`} onChange={event => {
-                const distanceRanges = config.clusterZoomSettings.distanceRanges.map((item, itemIndex) => itemIndex === index ? { ...item, maxZoom: Number(event.target.value) } : item)
-                updateClusterSettings({ distanceRanges })
-              }} style={{ ...inputStyle, height: 30, padding: '0 6px' }}/>
-              <span>{t('map_cluster_radius')}</span>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input type="number" min="0.5" max="1000" step="0.5" value={range.radiusKm} aria-label={`${t('map_cluster_radius')} ${index + 1}`} onChange={event => {
-                  const distanceRanges = config.clusterZoomSettings.distanceRanges.map((item, itemIndex) => itemIndex === index ? { ...item, radiusKm: Number(event.target.value) } : item)
-                  updateClusterSettings({ distanceRanges })
-                }} style={{ ...inputStyle, width: 52, height: 30, padding: '0 5px' }}/>
-                <small style={{ color: 'var(--muted-foreground)' }}>km</small>
-              </label>
-            </div>)}
-          </div>}
-          </>}
-        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 9 }}>
           <span style={{ color: 'var(--muted-foreground)', fontSize: 9.5 }}>{t('map_saved_in_browser')}</span>
