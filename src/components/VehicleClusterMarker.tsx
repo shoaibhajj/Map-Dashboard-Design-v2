@@ -228,6 +228,10 @@ export default function VehicleClusterMarker({
           e.stopPropagation()
           onClusterClick()
         }}
+        onDoubleClick={e => {
+          e.stopPropagation()
+          onClusterClick()
+        }}
       >
         <svg className="donut-cluster-svg" viewBox="0 0 76 76" width="76" height="76">
           <circle className="donut-cluster-track" cx="38" cy="38" r={radius} />
@@ -268,6 +272,10 @@ export default function VehicleClusterMarker({
             setActiveFilter('all')
           }}
           onClick={e => {
+            e.stopPropagation()
+            onClusterClick()
+          }}
+          onDoubleClick={e => {
             e.stopPropagation()
             onClusterClick()
           }}
