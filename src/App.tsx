@@ -24,8 +24,8 @@ export default function App() {
           <BrowserRouter>
             <Suspense fallback={<div role="status" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--background)', color: 'var(--muted-foreground)', fontSize: 13 }}>Loading page…</div>}>
               <Routes>
-                <Route path="/" element={<ReplacementLandingPage />} />
-                <Route path="/landing-legacy" element={<LandingPage />} />
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/landing-legacy" element={< ReplacementLandingPage />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/app" element={<ProtectedRoute><MapDashboardRoute /></ProtectedRoute>} />

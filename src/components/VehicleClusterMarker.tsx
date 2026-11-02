@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type CSSProperties, type MouseEvent } from 'react'
+import { useState, useRef, useEffect, type CSSProperties } from 'react'
 import type { Vehicle } from '../data/vehicles'
 import type { VehicleClusterSlice } from '../utils/vehicleClustering'
 import { Tilt } from './core/tilt'
@@ -30,7 +30,6 @@ export function getOrbitalClusterSize(_ringCount: number, _zoom: number): number
 }
 
 type FilterKey = 'all' | 'moving' | 'idle' | 'offline' | 'towed'
-type CardVariant = 'pure' | 'tinted'
 
 function getVehicleStatusKey(v: Vehicle): 'towed' | 'moving' | 'idle' | 'offline' {
   if (v.telemetry?.towing) return 'towed'
@@ -75,22 +74,10 @@ export default function VehicleClusterMarker({
 }: Props) {
   const [showPopup, setShowPopup] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
-  const [cardVariant, setCardVariant] = useState<CardVariant>(() => {
-    try {
-      const saved = localStorage.getItem('cluster_card_variant')
-      return saved === 'tinted' ? 'tinted' : 'pure'
-    } catch {
-      return 'pure'
-    }
-  })
-  const [showPanelBackdrop, setShowPanelBackdrop] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('cluster_list_backdrop') === 'true'
-    } catch {
-      return false
-    }
-  })
+  const [popupPlacement, setPopupPlacement] = useState<'top' | 'bottom'>('top')
+  const [popupMaxHeight, setPopupMaxHeight] = useState(260)
 
+  const markerRef = useRef<HTMLDivElement>(null)
   const popupRef = useRef<HTMLDivElement>(null)
   const closeTimerRef = useRef<number | null>(null)
 
@@ -99,6 +86,23 @@ export default function VehicleClusterMarker({
       window.clearTimeout(closeTimerRef.current)
       closeTimerRef.current = null
     }
+
+    const marker = markerRef.current
+    const markerBounds = marker?.getBoundingClientRect()
+    const mapBounds = marker?.closest('.mapboxgl-map')?.getBoundingClientRect()
+    const viewportTop = mapBounds?.top ?? 0
+    const viewportBottom = mapBounds?.bottom ?? window.innerHeight
+    const spaceAbove = Math.max(0, (markerBounds?.top ?? viewportTop) - viewportTop)
+    const spaceBelow = Math.max(0, viewportBottom - (markerBounds?.bottom ?? viewportBottom))
+    const placement = spaceAbove >= 260
+      ? 'top'
+      : spaceBelow >= 260
+        ? 'bottom'
+        : spaceAbove >= spaceBelow ? 'top' : 'bottom'
+    const availableSpace = placement === 'top' ? spaceAbove : spaceBelow
+
+    setPopupPlacement(placement)
+    setPopupMaxHeight(Math.max(96, Math.min(260, availableSpace - 12)))
     setShowPopup(true)
   }
 
@@ -110,6 +114,14 @@ export default function VehicleClusterMarker({
       setShowPopup(false)
       setActiveFilter('all')
     }, 240)
+  }
+
+  const handlePopupMouseEnter = () => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    setActiveFilter('all')
   }
 
   useEffect(() => {
@@ -133,35 +145,11 @@ export default function VehicleClusterMarker({
     }
   }, [showPopup])
 
-  const toggleVariant = (variant: CardVariant, e: MouseEvent) => {
-    e.stopPropagation()
-    setCardVariant(variant)
-    try {
-      localStorage.setItem('cluster_card_variant', variant)
-    } catch {
-      // ignore
-    }
-  }
-
-  const toggleBackdrop = (e: MouseEvent) => {
-    e.stopPropagation()
-    setShowPanelBackdrop(prev => {
-      const next = !prev
-      try {
-        localStorage.setItem('cluster_list_backdrop', String(next))
-      } catch {
-        // ignore
-      }
-      return next
-    })
-  }
-
   // 1. Group vehicles by status
   const totalCount = clusterVehicles.length || count || 1
   type StatusGroup = {
     key: FilterKey
     color: string
-    rgb: string
     vehicles: Vehicle[]
     label: string
   }
@@ -170,28 +158,24 @@ export default function VehicleClusterMarker({
     {
       key: 'moving',
       color: statusColors.moving || '#22c55e',
-      rgb: getStatusRgb('moving'),
       vehicles: clusterVehicles.filter(v => !v.telemetry?.towing && v.status === 'moving'),
       label: getStatusLabel('moving', lang),
     },
     {
       key: 'idle',
       color: statusColors.idle || '#f97316',
-      rgb: getStatusRgb('idle'),
       vehicles: clusterVehicles.filter(v => !v.telemetry?.towing && v.status === 'idle'),
       label: getStatusLabel('idle', lang),
     },
     {
       key: 'offline',
       color: statusColors.offline || '#64748b',
-      rgb: getStatusRgb('offline'),
       vehicles: clusterVehicles.filter(v => !v.telemetry?.towing && v.status === 'offline'),
       label: getStatusLabel('offline', lang),
     },
     {
       key: 'towed',
       color: statusColors.towed || '#eab308',
-      rgb: getStatusRgb('towed'),
       vehicles: clusterVehicles.filter(v => Boolean(v.telemetry?.towing)),
       label: getStatusLabel('towed', lang),
     },
@@ -215,6 +199,7 @@ export default function VehicleClusterMarker({
 
   return (
     <div
+      ref={markerRef}
       className="donut-cluster-marker"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -296,22 +281,23 @@ export default function VehicleClusterMarker({
       {showPopup && (
         <div
           ref={popupRef}
-          className={`donut-popup-overlay${showPanelBackdrop ? ' has-panel-backdrop' : ''}`}
+          className="donut-popup-overlay"
+          data-placement={popupPlacement}
+          style={{ '--popup-max-height': `${popupMaxHeight}px` } as CSSProperties}
+          onMouseEnter={handlePopupMouseEnter}
+          onMouseLeave={handleMouseLeave}
           onClick={e => e.stopPropagation()}
           onWheel={e => e.stopPropagation()}
           dir={lang === 'ar' ? 'rtl' : 'ltr'}
         >
-          {/* Minimal Floating Toolbar (Filter Chip + Mini Switchers) */}
+          {/* Cluster label and current status filter */}
           <div className="donut-popup-toolbar">
             {activeFilter !== 'all' && activeGroup ? (
               <span
-                className="donut-filter-chip"
-                style={{
-                  color: activeGroup.color,
-                  borderColor: `rgba(${activeGroup.rgb}, 0.45)`,
-                  background: `rgba(${activeGroup.rgb}, 0.16)`,
-                }}
+                className="donut-filter-chip is-active"
+                style={{ '--filter-color': activeGroup.color } as CSSProperties}
               >
+                <i aria-hidden="true" />
                 <span>{activeGroup.label}</span>
                 <span className="opacity-75">· {visibleVehicles.length}</span>
               </span>
@@ -320,65 +306,6 @@ export default function VehicleClusterMarker({
                 {clusterLabel} · {totalCount}
               </span>
             )}
-
-            <div className="donut-toolbar-actions">
-              {/* Button 1: Backdrop Panel Visibility Switcher */}
-              <button
-                type="button"
-                className={`donut-mini-switcher${showPanelBackdrop ? ' is-active' : ''}`}
-                onClick={toggleBackdrop}
-                title={
-                  lang === 'ar'
-                    ? (showPanelBackdrop ? 'إخفاء خلفية القائمة (وضع البطاقات الحرة)' : 'إظهار خلفية لوحية للقائمة')
-                    : (showPanelBackdrop ? 'Hide list backdrop (free floating mode)' : 'Show panel backdrop for list')
-                }
-                aria-label={lang === 'ar' ? 'تبديل خلفية القائمة' : 'Toggle list backdrop'}
-              >
-                {showPanelBackdrop ? (
-                  /* Icon: Filled panel */
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor" fillOpacity="0.28" />
-                    <line x1="9" y1="3" x2="9" y2="21" />
-                  </svg>
-                ) : (
-                  /* Icon: Transparent frame */
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="4" />
-                    <path d="m3 3 18 18" opacity="0.6" />
-                  </svg>
-                )}
-              </button>
-
-              {/* Button 2: Card Style Switcher (Pure Dark vs Tinted Hybrid) */}
-              <button
-                type="button"
-                className="donut-mini-switcher"
-                onClick={e => toggleVariant(cardVariant === 'pure' ? 'tinted' : 'pure', e)}
-                title={
-                  lang === 'ar'
-                    ? (cardVariant === 'pure' ? 'التبديل إلى النمط الملون (Style 2)' : 'التبديل إلى النمط الداكن (Style 1)')
-                    : (cardVariant === 'pure' ? 'Switch to Tinted Hybrid' : 'Switch to Pure Dark')
-                }
-                aria-label={lang === 'ar' ? 'تبديل نمط الكبسولة' : 'Switch card style'}
-              >
-                {cardVariant === 'pure' ? (
-                  /* Icon representing Tinted style (palette/layers) */
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
-                    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
-                    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
-                    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
-                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2Z" />
-                  </svg>
-                ) : (
-                  /* Icon representing Pure dark capsule style */
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="6" width="18" height="12" rx="6" />
-                    <line x1="12" y1="6" x2="12" y2="18" />
-                  </svg>
-                )}
-              </button>
-            </div>
           </div>
 
           {/* Floating Staggered/Stacked Vehicle Cards with 3D Tilt */}
@@ -402,14 +329,8 @@ export default function VehicleClusterMarker({
                   '--status-color': statusColor,
                   '--status-glow': `rgba(${statusRgb}, 0.28)`,
                   '--status-border': `rgba(${statusRgb}, 0.38)`,
-                  '--status-bg-strong': `rgba(${statusRgb}, 0.18)`,
-                  '--status-bg-soft': `rgba(${statusRgb}, 0.06)`,
                   '--status-badge-bg': `rgba(${statusRgb}, 0.14)`,
                 } as CSSProperties
-
-                const cardClass = cardVariant === 'tinted'
-                  ? 'capsule-card is-tinted-pill'
-                  : 'capsule-card is-pure-pill'
 
                 return (
                   <Tilt
@@ -420,7 +341,7 @@ export default function VehicleClusterMarker({
                     className="capsule-tilt-wrapper"
                   >
                     <div
-                      className={cardClass}
+                      className="capsule-card is-pure-pill"
                       style={inlineStyle}
                       onClick={e => {
                         e.stopPropagation()
@@ -428,39 +349,23 @@ export default function VehicleClusterMarker({
                       }}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${vehicle.name}, ${vehicle.driver || ''}, ${statusName}`}
+                      aria-label={`${vehicle.name}, ${statusName}`}
                     >
                       {/* Segment 1: Identity & Pod */}
                       <div className="capsule-segment-identity">
-                        <div
-                          className="capsule-icon-pod"
-                          style={{
-                            background: cardVariant === 'tinted' ? `rgba(${statusRgb}, 0.24)` : undefined,
-                            borderColor: cardVariant === 'tinted' ? `rgba(${statusRgb}, 0.42)` : undefined,
-                          }}
-                        >
+                        <div className="capsule-icon-pod">
                           <span>{iconSymbol}</span>
                         </div>
                         <div className="capsule-meta-names">
                           <div className="capsule-vname">
-                            <span>{vehicle.name}</span>
+                            <span className="capsule-name-text">{vehicle.name}</span>
                             <span className="capsule-status-tag">{statusName}</span>
                           </div>
-                          {vehicle.driver ? (
-                            <div className="capsule-vdriver">
-                              {vehicle.driver}
-                            </div>
-                          ) : null}
                         </div>
                       </div>
 
                       {/* Hairline Vertical Divider */}
-                      <div
-                        className="capsule-divider"
-                        style={{
-                          background: cardVariant === 'tinted' ? `rgba(${statusRgb}, 0.35)` : undefined,
-                        }}
-                      />
+                      <div className="capsule-divider" />
 
                       {/* Segment 2: Telemetry */}
                       <div className="capsule-segment-telemetry">

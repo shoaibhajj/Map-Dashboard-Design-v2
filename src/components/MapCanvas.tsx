@@ -278,11 +278,11 @@ function getNextClusterZoom(zoom: number, _legend?: MapLegendConfig) {
   if (zoom < 9.0) return 9
   if (zoom < 12.0) return 12
   if (zoom < 14.0) return 14
-  return Math.min(22, Math.floor(zoom) + 1)
+  return Math.min(22, Math.floor(zoom * 2 + 1e-6) / 2 + 0.5)
 }
 
 function getPreviousClusterZoom(zoom: number, _legend?: MapLegendConfig) {
-  if (zoom > 14.5) return Math.max(14, Math.ceil(zoom) - 1)
+  if (zoom > 14.0) return Math.max(14, Math.ceil(zoom * 2 - 1e-6) / 2 - 0.5)
   if (zoom > 12.0) return 12
   if (zoom > 9.0) return 9
   if (zoom > 6.0) return 6
@@ -511,11 +511,30 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
 
     let targetZoom: number | null = null
     let wheelTimer: number | null = null
+    let wheelDelta = 0
+    let wheelActionTaken = false
 
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey) return // Allow trackpad browser zoom
       e.preventDefault()
       e.stopPropagation()
+
+      // Aggregate small trackpad deltas and allow one zoom step per scroll burst.
+      if (wheelTimer !== null) window.clearTimeout(wheelTimer)
+      wheelTimer = window.setTimeout(() => {
+        targetZoom = null
+        wheelDelta = 0
+        wheelActionTaken = false
+        wheelTimer = null
+      }, 300)
+
+      const deltaScale = e.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? containerRef.current?.clientHeight ?? window.innerHeight
+          : 1
+      wheelDelta += e.deltaY * deltaScale
+      if (wheelActionTaken || Math.abs(wheelDelta) < 48) return
 
       const container = containerRef.current
       if (!container) return
@@ -524,47 +543,15 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
       const point: [number, number] = [e.clientX - rect.left, e.clientY - rect.top]
       const around = map.unproject(point)
 
-      const isZoomIn = e.deltaY < 0
+      const isZoomIn = wheelDelta < 0
       const current = targetZoom ?? map.getZoom()
-      let next: number
-
-      if (isZoomIn) {
-        if (current < 3.0) {
-          next = 3
-        } else if (current < 6.0) {
-          next = 6
-        } else if (current < 9.0) {
-          next = 9
-        } else if (current < 12.0) {
-          next = 12
-        } else if (current < 14.0) {
-          next = 14
-        } else {
-          // At Zoom >= 14: "واحدة واحدة او اثنين اثنين"
-          const step = Math.abs(e.deltaY) > 120 ? 2 : 1
-          next = Math.min(22, Math.floor(current) + step)
-        }
-      } else {
-        if (current > 14.5) {
-          const step = Math.abs(e.deltaY) > 120 ? 2 : 1
-          next = Math.max(14, Math.ceil(current) - step)
-        } else if (current > 12.0) {
-          next = 12
-        } else if (current > 9.0) {
-          next = 9
-        } else if (current > 6.0) {
-          next = 6
-        } else if (current > 3.0) {
-          next = 3
-        } else if (current > 2.0) {
-          next = 2
-        } else {
-          next = Math.max(0, Math.floor(current) - 1)
-        }
-      }
+      const next = isZoomIn
+        ? getNextClusterZoom(current)
+        : getPreviousClusterZoom(current)
 
       if (next === current) return
       targetZoom = next
+      wheelActionTaken = true
 
       map.easeTo({
         zoom: next,
@@ -572,11 +559,6 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
         duration: 280,
       })
 
-      if (wheelTimer !== null) window.clearTimeout(wheelTimer)
-      wheelTimer = window.setTimeout(() => {
-        targetZoom = null
-        wheelTimer = null
-      }, 300)
     }
 
     const containerEl = containerRef.current
@@ -584,6 +566,8 @@ export default function MapCanvas({ vehicles, selectedVehicle, showSelectedRoute
 
     map.on('dragstart', () => {
       targetZoom = null
+      wheelDelta = 0
+      wheelActionTaken = false
       if (wheelTimer !== null) {
         window.clearTimeout(wheelTimer)
         wheelTimer = null

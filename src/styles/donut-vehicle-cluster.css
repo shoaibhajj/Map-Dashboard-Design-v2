@@ -125,21 +125,27 @@
 }
 
 /* ==========================================================================
-   FLOATING VEHICLE CARDS (HUD OVERLAY - NO CONTAINER BOX, FREE FLOATING)
-   As shown in Reference 3: Individual stacked capsules with 3D Tilt
+   CLUSTER VEHICLE LIST AND CARDS
    ========================================================================== */
 
 .donut-popup-overlay {
   position: absolute;
   bottom: calc(100% + 12px);
+  top: auto;
   left: 50%;
   transform: translateX(-50%);
-  width: 255px; /* Compact width matching left drawer density */
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  width: 300px;
+  max-height: var(--popup-max-height, 260px);
+  padding: 6px;
+  background: rgba(8, 26, 33, 0.96);
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  border-radius: 14px;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(34, 197, 94, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   pointer-events: auto;
   z-index: 10050;
   overflow: visible;
@@ -151,24 +157,17 @@
   overscroll-behavior: contain;
 }
 
+.donut-popup-overlay[data-placement="bottom"] {
+  top: calc(100% + 12px);
+  bottom: auto;
+  animation-name: donutPopupEnterBelow;
+}
+
 [dir="ltr"] .donut-popup-overlay {
   text-align: left;
 }
 
-/* Optional Backdrop Panel Mode (when toggled via mini button) */
-.donut-popup-overlay.has-panel-backdrop {
-  background: rgba(8, 26, 33, 0.92) !important;
-  border: 1px solid rgba(45, 212, 191, 0.3) !important;
-  border-radius: 14px !important;
-  box-shadow: 
-    0 16px 40px rgba(0, 0, 0, 0.65),
-    0 0 0 1px rgba(34, 197, 94, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  padding: 6px 6px 4px 6px;
-}
-.light .donut-popup-overlay.has-panel-backdrop {
+.light .donut-popup-overlay {
   background: rgba(255, 255, 255, 0.96) !important;
   border-color: #cbdce2 !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
@@ -177,15 +176,26 @@
 @keyframes donutPopupEnter {
   from {
     opacity: 0;
-    transform: translate(-50%, 6px) scale(0.96);
+    transform: translate(-50%, 6px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0) scale(1);
+    transform: translate(-50%, 0);
   }
 }
 
-/* Minimal Floating Toolbar (Filter Chip + Mini Action Switchers) */
+@keyframes donutPopupEnterBelow {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Clear cluster label and status filter */
 .donut-popup-toolbar {
   display: flex;
   align-items: center;
@@ -195,78 +205,55 @@
   margin-bottom: 2px;
 }
 
-.donut-toolbar-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .donut-filter-chip {
-  font-size: 9.5px;
-  font-weight: 800;
-  padding: 2px 7px;
+  min-height: 22px;
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  padding: 3px 8px;
   border-radius: 9999px;
   border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  backdrop-filter: blur(8px);
+  color: var(--foreground, #e6f0f3);
+  background: rgba(4, 16, 21, 0.96);
+  text-shadow: none;
+}
+.donut-filter-chip.is-active {
+  border-color: color-mix(in srgb, var(--filter-color) 50%, transparent);
+}
+.donut-filter-chip.is-active i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--filter-color);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--filter-color) 50%, transparent);
+}
+.light .donut-filter-chip {
+  color: #0a252d;
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .donut-filter-chip.is-muted {
-  color: #8eaeb6;
-  background: rgba(9, 27, 34, 0.75);
+  color: #e6f0f3;
+  background: rgba(4, 16, 21, 0.96);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 .light .donut-filter-chip.is-muted {
-  color: #475569;
+  color: #0a252d;
   background: rgba(255, 255, 255, 0.9);
   border-color: #cbdce2;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-/* Discreet Mini Switcher Button (Small Icon Only) */
-.donut-mini-switcher {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(9, 29, 36, 0.92);
-  border: 1px solid rgba(45, 212, 191, 0.35);
-  color: #4ade80;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  outline: none;
-  flex-shrink: 0;
-}
-.light .donut-mini-switcher {
-  background: #ffffff;
-  border-color: #cbdce2;
-  color: #16a34a;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.donut-mini-switcher:hover,
-.donut-mini-switcher.is-active {
-  transform: scale(1.1);
-  border-color: #22c55e;
-  color: #ffffff;
-  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
-}
-.light .donut-mini-switcher:hover,
-.light .donut-mini-switcher.is-active {
-  border-color: #16a34a;
-  color: #16a34a;
-  background: #f0fdf4;
-}
-
 /* Floating Vehicle List (Independent items, no boxed container) */
 .donut-popup-list {
-  max-height: 205px;
+  min-height: 0;
+  max-height: min(205px, calc(var(--popup-max-height, 260px) - 58px));
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -274,6 +261,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+  flex: 0 1 auto;
 }
 
 .donut-popup-list::-webkit-scrollbar {
@@ -340,30 +328,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
-/* VARIANT 2: TINTED HYBRID CAPSULE (الكبسولة المدمجة مع خلفية ملونة - النمط الثاني) */
-.capsule-card.is-tinted-pill {
-  background: linear-gradient(90deg, var(--status-bg-strong) 0%, rgba(6, 21, 28, 0.95) 100%);
-  border: 1px solid var(--status-border);
-  box-shadow: 
-    0 6px 16px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 0 10px var(--status-glow);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-.light .capsule-card.is-tinted-pill {
-  background: linear-gradient(90deg, var(--status-bg-soft) 0%, #ffffff 100%);
-  border: 1px solid var(--status-border);
-  box-shadow: 0 4px 14px var(--status-glow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.capsule-card.is-tinted-pill:hover {
-  border-color: var(--status-color);
-  box-shadow: 
-    0 8px 24px var(--status-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
 /* Segment 1: Identity & Pod */
 .capsule-segment-identity {
   display: flex;
@@ -396,6 +360,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.5px;
+  flex: 1;
   min-width: 0;
 }
 
@@ -404,12 +369,17 @@
   font-weight: 800;
   color: var(--text, #edf7f8);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
   line-height: 1.2;
+}
+.capsule-name-text {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .light .capsule-vname {
   color: #0a252d;
@@ -424,19 +394,7 @@
   color: var(--status-color);
   border: 1px solid var(--status-border);
   letter-spacing: 0.01em;
-}
-
-.capsule-vdriver {
-  font-size: 9px;
-  color: #94a3b8;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.1;
-}
-.light .capsule-vdriver {
-  color: #64748b;
+  flex-shrink: 0;
 }
 
 /* Hairline Vertical Divider */
@@ -470,11 +428,11 @@
 }
 
 .capsule-time-badge {
-  font-size: 8.5px;
+  font-size: 7.5px;
   font-weight: 700;
   color: #e2e8f0; /* Crisp bright high-contrast light slate in dark mode */
   background: rgba(255, 255, 255, 0.09);
-  padding: 1.5px 6px;
+  padding: 1px 4px;
   border-radius: 9999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   white-space: nowrap;
